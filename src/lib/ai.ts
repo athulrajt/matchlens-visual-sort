@@ -1,4 +1,3 @@
-
 import { pipeline } from '@huggingface/transformers';
 import { kmeans } from 'ml-kmeans';
 import { ClusterType, ImageType } from '@/types';
@@ -12,7 +11,7 @@ const getExtractor = async () => {
     // The model will be downloaded on the first use.
     // We specify quantized: false because the default quantized version of this model is broken.
     // See: https://huggingface.co/Xenova/clip-vit-base-patch32/discussions/8
-    extractor = await pipeline('feature-extraction', 'Xenova/clip-vit-base-patch32', { model_kwargs: { quantized: false } });
+    extractor = await pipeline('feature-extraction', 'Xenova/clip-vit-base-patch32', { quantized: false } as any);
   }
   return extractor;
 };
