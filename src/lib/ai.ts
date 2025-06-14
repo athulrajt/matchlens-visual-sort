@@ -1,5 +1,4 @@
-
-import { AutoModel, CLIPProcessor, RawImage } from '@huggingface/transformers';
+import { AutoModel, AutoProcessor, RawImage } from '@huggingface/transformers';
 import { kmeans } from 'ml-kmeans';
 import { ClusterType, ImageType } from '@/types';
 
@@ -9,9 +8,9 @@ let processor: any = null;
 
 const getExtractor = async () => {
     if (model === null || processor === null) {
-        // We now use CLIPProcessor and AutoModel to have fine-grained control over the preprocessing,
-        // which resolves the "Missing pixel_values" error, as you correctly pointed out.
-        processor = await CLIPProcessor.from_pretrained('Xenova/clip-vit-base-patch32');
+        // We now use AutoProcessor and AutoModel to have fine-grained control over the preprocessing,
+        // which resolves "Missing pixel_values" errors.
+        processor = await AutoProcessor.from_pretrained('Xenova/clip-vit-base-patch32');
         model = await AutoModel.from_pretrained('Xenova/clip-vit-base-patch32');
     }
 
