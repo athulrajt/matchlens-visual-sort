@@ -18,6 +18,9 @@
     --primary: 200 80% 55%; /* A vibrant, modern blue for primary actions - MatchLens Accent */
     --primary-foreground: 0 0% 100%; /* White text on primary */
     
+    --orange: 25 95% 53%;
+    --red: 0 84% 60%;
+
     /* Custom Accent for MatchLens (if different from shadcn primary) */
     --accent-color: 200 80% 55%; /* Same as primary for now */
     --accent-foreground-color: 0 0% 100%;
@@ -64,6 +67,9 @@
 
     --primary: 200 70% 65%;
     --primary-foreground: 224 20% 10%;
+
+    --orange: 25 85% 60%;
+    --red: 0 74% 65%;
 
     --accent-color: 200 70% 65%;
     --accent-foreground-color: 224 20% 10%;

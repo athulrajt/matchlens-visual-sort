@@ -27,7 +27,7 @@ const Header: React.FC<HeaderProps> = ({
       <div className="container mx-auto flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <img src="/lovable-uploads/c1bd31d2-9913-4298-9c84-42ee5761099c.png" alt="MatchLens Logo" className="h-8 w-8" />
-          <h1 className="text-3xl font-bold text-foreground">
+          <h1 className="text-xl font-bold text-foreground">
             MatchLens
           </h1>
         </div>
@@ -39,7 +39,7 @@ const Header: React.FC<HeaderProps> = ({
             </Button>
           )}
           {showTopUploadButton && onTopUploadClick && (
-            <Button variant="default" onClick={onTopUploadClick} className="animate-pulse">
+            <Button variant="default" onClick={onTopUploadClick} className="bg-gradient-to-r from-orange to-primary text-primary-foreground animate-border-glow shadow-lg">
               <Upload className="mr-0 sm:mr-2 h-4 w-4" /> {/* Hide text on very small screens */}
               <span className="hidden sm:inline">Upload More</span>
             </Button>

@@ -113,7 +113,7 @@ const IndexPage = () => {
         {isInitialView ? (
           <div className="flex-grow flex flex-col items-center justify-center text-center">
             <h1 className="text-[54px] font-bold tracking-tight mb-4 animate-fade-in" style={{ animationDelay: '0.2s' }}>
-              Drop. Sort. <span className="bg-gradient-to-r from-primary to-violet bg-clip-text text-transparent">Discover.</span>
+              Drop. <span className="bg-gradient-to-r from-orange to-red bg-clip-text text-transparent">Sort.</span> <span className="bg-gradient-to-r from-primary to-violet bg-clip-text text-transparent">Discover.</span>
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground mb-8 animate-fade-in" style={{ animationDelay: '0.3s' }}>
               Your mess, beautifully sorted.
