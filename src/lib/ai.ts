@@ -1,4 +1,3 @@
-
 import { pipeline, RawImage } from '@huggingface/transformers';
 import { kmeans } from 'ml-kmeans';
 import { ClusterType, ImageType } from '@/types';
@@ -8,13 +7,15 @@ let featureExtractor: any = null;
 
 const getExtractor = async () => {
     if (featureExtractor === null) {
-        // Let's try a different model as you suggested, to see if it resolves the issue.
-        // We'll use a standard Vision Transformer (ViT) model this time.
+        // The previous model (ViT) caused an error because the generic 'feature-extraction'
+        // pipeline tried to load a tokenizer, which doesn't exist for vision-only models.
+        // To fix this, we'll use the more specific 'image-feature-extraction' task
+        // and switch to a standard vision model (MobileNetV2) that is known to work reliably.
         featureExtractor = await pipeline(
-            'feature-extraction',
-            'Xenova/vit-base-patch16-224-in21k'
+            'image-feature-extraction',
+            'Xenova/mobilenetv2-1.0-224'
         );
-        console.log("✅ Feature extractor (ViT) model loaded.");
+        console.log("✅ Feature extractor (MobileNetV2) model loaded.");
     }
     return featureExtractor;
 };
