@@ -1,3 +1,4 @@
+
 import { pipeline, RawImage } from '@huggingface/transformers';
 import { kmeans } from 'ml-kmeans';
 import { ClusterType, ImageType } from '@/types';
@@ -7,14 +8,13 @@ let featureExtractor: any = null;
 
 const getExtractor = async () => {
     if (featureExtractor === null) {
-        // Use the pipeline for feature extraction. The `quantized: true` option was
-        // removed as it's not a valid property in the current library version and
-        // was causing a build error.
+        // Let's try a different model as you suggested, to see if it resolves the issue.
+        // We'll use a standard Vision Transformer (ViT) model this time.
         featureExtractor = await pipeline(
             'feature-extraction',
-            'Xenova/clip-vit-base-patch32'
+            'Xenova/vit-base-patch16-224-in21k'
         );
-        console.log("✅ Feature extractor (CLIP) model loaded.");
+        console.log("✅ Feature extractor (ViT) model loaded.");
     }
     return featureExtractor;
 };
