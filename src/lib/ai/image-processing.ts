@@ -68,7 +68,7 @@ export const getTagsForImage = async (captioner: any, image: RawImage): Promise<
             .map(tag => tag.trim())
             .filter(t => t.length > 2 && t.length < 20); // Filter for meaningful tags
 
-        return [...new Set(tags)]; // Return unique tags
+        return Array.from(new Set(tags)); // Use Array.from for type safety
     } catch (e) {
         console.error("Failed to generate tags for an image:", e);
         return [];
