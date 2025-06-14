@@ -1,4 +1,3 @@
-
 import { pipeline, RawImage } from '@huggingface/transformers';
 import { kmeans } from 'ml-kmeans';
 import { ClusterType, ImageType } from '@/types';
@@ -79,9 +78,17 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
         console.warn("Some files were not images and have been filtered out.");
     }
     
+    // Log file details for debugging, as suggested.
+    console.table(imageFiles.map(f => ({
+      name: f.name,
+      type: f.type,
+      size: f.size,
+    })));
+
     if (imageFiles.length === 0) return [];
     
     const featureExtractor = await getExtractor();
+    console.log("✅ Feature extractor loaded:", !!featureExtractor);
 
     // 1. Extract embeddings for all images in parallel, handling errors
     const embeddingResults = await Promise.all(
@@ -94,14 +101,15 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
             };
 
             try {
-                // Use RawImage to load blob data directly, which is more reliable than using blob URLs.
-                const image = await RawImage.fromBlob(file);
-                console.log(`RawImage loaded successfully for: ${file.name}`);
-
-                const res = await featureExtractor(image, { pooling: 'mean', normalize: true });
+                // Let's try passing the object URL directly to the pipeline.
+                // The pipeline is designed to handle URLs and should manage loading and preprocessing.
+                // This often works better than manually creating a RawImage object and should fix the "Missing pixel_values" error.
+                const res = await featureExtractor(imageInfo.url, { pooling: 'mean', normalize: true });
                 
+                console.log(`✅ Embedding extracted for ${file.name}. Type:`, res?.data?.constructor?.name);
+
                 if (!res || !res.data || !(res.data instanceof Float32Array)) {
-                    throw new Error(`Invalid result from feature extractor for ${file.name}`);
+                    throw new Error(`Invalid result from feature extractor for ${file.name}. Expected Float32Array, got ${res?.data?.constructor?.name}.`);
                 }
 
                 return {
@@ -109,7 +117,7 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
                     info: imageInfo
                 };
             } catch (err) {
-                console.error(`Failed to process image ${imageInfo.alt}:`, {
+                console.error(`❌ Failed to process image ${imageInfo.alt}:`, {
                     error: err,
                     fileName: file.name,
                     fileType: file.type,
