@@ -1,4 +1,3 @@
-
 import {
   Dialog,
   DialogContent,
@@ -88,11 +87,11 @@ export function AuthModal({ isOpen, onOpenChange, onSuccess }: AuthModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md p-0 border-dashed">
+      <DialogContent className="sm:max-w-md bg-card/80 backdrop-blur-lg shadow-soft rounded-4xl border-none p-0">
           <Tabs defaultValue="sign-in" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 rounded-t-lg rounded-b-none">
-              <TabsTrigger value="sign-in">Sign In</TabsTrigger>
-              <TabsTrigger value="sign-up">Sign Up</TabsTrigger>
+            <TabsList className="flex w-full border-b bg-transparent p-0">
+              <TabsTrigger value="sign-in" className="text-muted-foreground flex-grow basis-0 justify-center rounded-none rounded-tl-4xl px-3 py-4 text-sm font-medium transition-all data-[state=active]:text-foreground data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]">Sign In</TabsTrigger>
+              <TabsTrigger value="sign-up" className="text-muted-foreground flex-grow basis-0 justify-center rounded-none rounded-tr-4xl px-3 py-4 text-sm font-medium transition-all data-[state=active]:text-foreground data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]">Sign Up</TabsTrigger>
             </TabsList>
             <TabsContent value="sign-in" className="p-6">
                 <DialogHeader>
@@ -113,7 +112,7 @@ export function AuthModal({ isOpen, onOpenChange, onSuccess }: AuthModalProps) {
                       <Input id="password-in" type="password" {...signInForm.register("password")} autoComplete="current-password" />
                       {signInForm.formState.errors.password && <p className="text-sm text-destructive">{signInForm.formState.errors.password.message}</p>}
                     </div>
-                    <Button type="submit" className="w-full" disabled={loading}>
+                    <Button type="submit" className="w-full bg-gradient-to-r from-orange to-primary text-primary-foreground shadow-lg hover:opacity-90 transition-opacity" disabled={loading}>
                       {loading ? <AiLoader className="w-6 h-6"/> : 'Sign In'}
                     </Button>
                   </form>
@@ -143,7 +142,7 @@ export function AuthModal({ isOpen, onOpenChange, onSuccess }: AuthModalProps) {
                       <Input id="password-up" type="password" {...signUpForm.register("password")} autoComplete="new-password" />
                       {signUpForm.formState.errors.password && <p className="text-sm text-destructive">{signUpForm.formState.errors.password.message}</p>}
                     </div>
-                    <Button type="submit" className="w-full" disabled={loading}>
+                    <Button type="submit" className="w-full bg-gradient-to-r from-orange to-primary text-primary-foreground shadow-lg hover:opacity-90 transition-opacity" disabled={loading}>
                       {loading ? <AiLoader className="w-6 h-6"/> : 'Create Account'}
                     </Button>
                   </form>
