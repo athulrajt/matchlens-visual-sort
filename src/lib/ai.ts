@@ -1,3 +1,4 @@
+
 import { pipeline, RawImage } from '@huggingface/transformers';
 import { kmeans } from 'ml-kmeans';
 import { ClusterType, ImageType } from '@/types';
@@ -7,10 +8,14 @@ let featureExtractor: any = null;
 
 const getExtractor = async () => {
     if (featureExtractor === null) {
-        // Use the pipeline for feature extraction, which is simpler and more robust.
-        // This will download the model on first use.
-        featureExtractor = await pipeline('feature-extraction', 'Xenova/clip-vit-base-patch32');
-        console.log("✅ Feature extractor (pipeline) loaded.");
+        // Use the pipeline for feature extraction, using the quantized version of the
+        // visual model for better performance, as you suggested.
+        featureExtractor = await pipeline(
+            'feature-extraction',
+            'Xenova/clip-vit-base-patch32',
+            { quantized: true }
+        );
+        console.log("✅ Feature extractor (CLIP) model loaded.");
     }
     return featureExtractor;
 };
@@ -108,8 +113,9 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
                 
                 console.log(`✅ Embedding extracted for ${file.name}.`);
 
-                if (!embeddingTensor || !embeddingTensor.data || !(embeddingTensor.data instanceof Float32Array)) {
-                     throw new Error(`Invalid result from feature extractor for ${file.name}. Expected a Tensor, got ${typeof embeddingTensor}.`);
+                if (!embeddingTensor || !embeddingTensor.data || !(embeddingTensor.data instanceof Float32Array) || embeddingTensor.data.length === 0) {
+                     console.error("Invalid embedding tensor received:", embeddingTensor);
+                     throw new Error(`Invalid or empty result from feature extractor for ${file.name}. Expected a Tensor with data.`);
                 }
 
                 return {
