@@ -1,3 +1,4 @@
+
 import {
   Dialog,
   DialogContent,
@@ -87,11 +88,11 @@ export function AuthModal({ isOpen, onOpenChange, onSuccess }: AuthModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-card/80 backdrop-blur-lg shadow-soft rounded-4xl border-none p-0">
+      <DialogContent className="sm:max-w-md bg-card shadow-soft rounded-4xl border-none p-0">
           <Tabs defaultValue="sign-in" className="w-full">
             <TabsList className="flex w-full border-b bg-transparent p-0">
-              <TabsTrigger value="sign-in" className="text-muted-foreground flex-grow basis-0 justify-center rounded-none rounded-tl-4xl px-3 py-4 text-sm font-medium transition-all data-[state=active]:text-foreground data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]">Sign In</TabsTrigger>
-              <TabsTrigger value="sign-up" className="text-muted-foreground flex-grow basis-0 justify-center rounded-none rounded-tr-4xl px-3 py-4 text-sm font-medium transition-all data-[state=active]:text-foreground data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]">Sign Up</TabsTrigger>
+              <TabsTrigger value="sign-in" className="text-muted-foreground flex-grow basis-0 justify-center rounded-none rounded-tl-4xl px-3 py-4 text-sm font-medium transition-all data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]">Sign In</TabsTrigger>
+              <TabsTrigger value="sign-up" className="text-muted-foreground flex-grow basis-0 justify-center rounded-none rounded-tr-4xl px-3 py-4 text-sm font-medium transition-all data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]">Sign Up</TabsTrigger>
             </TabsList>
             <TabsContent value="sign-in" className="p-6">
                 <DialogHeader>
@@ -104,15 +105,15 @@ export function AuthModal({ isOpen, onOpenChange, onSuccess }: AuthModalProps) {
                   <form onSubmit={signInForm.handleSubmit(handleSignIn)} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="email-in">Email</Label>
-                      <Input id="email-in" placeholder="m@example.com" {...signInForm.register("email")} autoComplete="email" />
+                      <Input id="email-in" placeholder="m@example.com" {...signInForm.register("email")} autoComplete="email" className="shadow-sm" />
                       {signInForm.formState.errors.email && <p className="text-sm text-destructive">{signInForm.formState.errors.email.message}</p>}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="password-in">Password</Label>
-                      <Input id="password-in" type="password" {...signInForm.register("password")} autoComplete="current-password" />
+                      <Input id="password-in" type="password" {...signInForm.register("password")} autoComplete="current-password" className="shadow-sm" />
                       {signInForm.formState.errors.password && <p className="text-sm text-destructive">{signInForm.formState.errors.password.message}</p>}
                     </div>
-                    <Button type="submit" className="w-full bg-gradient-to-r from-orange to-primary text-primary-foreground shadow-lg hover:opacity-90 transition-opacity" disabled={loading}>
+                    <Button type="submit" className="w-full bg-gradient-to-r from-orange to-primary text-primary-foreground shadow-lg hover:opacity-90 transition-opacity text-base py-3" disabled={loading}>
                       {loading ? <AiLoader className="w-6 h-6"/> : 'Sign In'}
                     </Button>
                   </form>
@@ -129,20 +130,20 @@ export function AuthModal({ isOpen, onOpenChange, onSuccess }: AuthModalProps) {
                   <form onSubmit={signUpForm.handleSubmit(handleSignUp)} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="firstName">First Name</Label>
-                      <Input id="firstName" placeholder="John" {...signUpForm.register("firstName")} autoComplete="given-name" />
+                      <Input id="firstName" placeholder="John" {...signUpForm.register("firstName")} autoComplete="given-name" className="shadow-sm" />
                        {signUpForm.formState.errors.firstName && <p className="text-sm text-destructive">{signUpForm.formState.errors.firstName.message}</p>}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="email-up">Email</Label>
-                      <Input id="email-up" placeholder="m@example.com" {...signUpForm.register("email")} autoComplete="email" />
+                      <Input id="email-up" placeholder="m@example.com" {...signUpForm.register("email")} autoComplete="email" className="shadow-sm" />
                       {signUpForm.formState.errors.email && <p className="text-sm text-destructive">{signUpForm.formState.errors.email.message}</p>}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="password-up">Password</Label>
-                      <Input id="password-up" type="password" {...signUpForm.register("password")} autoComplete="new-password" />
+                      <Input id="password-up" type="password" {...signUpForm.register("password")} autoComplete="new-password" className="shadow-sm" />
                       {signUpForm.formState.errors.password && <p className="text-sm text-destructive">{signUpForm.formState.errors.password.message}</p>}
                     </div>
-                    <Button type="submit" className="w-full bg-gradient-to-r from-orange to-primary text-primary-foreground shadow-lg hover:opacity-90 transition-opacity" disabled={loading}>
+                    <Button type="submit" className="w-full bg-gradient-to-r from-orange to-primary text-primary-foreground shadow-lg hover:opacity-90 transition-opacity text-base py-3" disabled={loading}>
                       {loading ? <AiLoader className="w-6 h-6"/> : 'Create Account'}
                     </Button>
                   </form>
