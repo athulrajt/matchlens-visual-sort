@@ -8,7 +8,6 @@ import IndexPage from "./pages/Index";
 import ClusterDetailPage from "./pages/ClusterDetail";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthProvider";
-import AuthPage from "./pages/AuthPage";
 
 const queryClient = new QueryClient();
 
@@ -21,7 +20,6 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<IndexPage />} />
-            <Route path="/auth" element={<AuthPage />} />
             <Route path="/cluster/:clusterId" element={<ClusterDetailPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -12,6 +12,7 @@ import { useClusters } from '@/hooks/useClusters';
 import { useImageUploader } from '@/hooks/useImageUploader';
 import InitialView from '@/components/InitialView';
 import Dashboard from '@/components/Dashboard';
+import { AuthModal } from '@/components/AuthModal';
 
 const IndexPage = () => {
   const { user } = useAuth();
@@ -30,6 +31,7 @@ const IndexPage = () => {
 
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 10);
@@ -80,6 +82,7 @@ const IndexPage = () => {
         onTopUploadClick={handleUploadClick}
         showFilterButton={!isInitialView}
         onFilterButtonClick={() => setIsFilterSheetOpen(true)}
+        onSignInClick={() => setIsAuthModalOpen(true)}
       />
       <main className="container mx-auto flex-grow py-8 px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center">
         {isProcessing ? (
@@ -114,6 +117,11 @@ const IndexPage = () => {
            onApplyFilters={setActiveFilters}
          />
       )}
+      <AuthModal 
+        isOpen={isAuthModalOpen} 
+        onOpenChange={setIsAuthModalOpen}
+        onSuccess={() => setIsAuthModalOpen(false)}
+      />
     </div>
   );
 };

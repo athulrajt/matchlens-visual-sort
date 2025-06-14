@@ -13,6 +13,7 @@ interface HeaderProps {
   onTopUploadClick?: () => void;
   showFilterButton?: boolean;
   onFilterButtonClick?: () => void;
+  onSignInClick?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -20,7 +21,8 @@ const Header: React.FC<HeaderProps> = ({
   showTopUploadButton,
   onTopUploadClick,
   showFilterButton,
-  onFilterButtonClick
+  onFilterButtonClick,
+  onSignInClick,
 }) => {
   const { user } = useAuth();
 
@@ -52,8 +54,8 @@ const Header: React.FC<HeaderProps> = ({
           {user ? (
             <UserNav />
           ) : (
-            <Button asChild variant="ghost">
-              <Link to="/auth">Sign In</Link>
+            <Button variant="ghost" onClick={onSignInClick}>
+              Sign In
             </Button>
           )}
         </div>
