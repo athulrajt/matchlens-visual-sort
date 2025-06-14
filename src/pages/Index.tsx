@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import UploadZone from '@/components/UploadZone';
 import ClusterGrid from '@/components/ClusterGrid';
 import FilterSheet from '@/components/FilterSheet';
-import ImageGalleryModal from '@/components/ImageGalleryModal';
 import { ClusterType } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
@@ -14,12 +13,11 @@ import { clusterImages } from '@/lib/ai';
 
 const IndexPage = () => {
   const [clusters, setClusters] = useState<ClusterType[]>([]);
-  const [selectedCluster, setSelectedCluster] = useState<ClusterType | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -72,13 +70,7 @@ const IndexPage = () => {
   };
 
   const handleViewCluster = (cluster: ClusterType) => {
-    setSelectedCluster(cluster);
-    setIsModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setSelectedCluster(null);
+    navigate(`/cluster/${cluster.id}`, { state: { cluster } });
   };
 
   const handleClearClusters = () => {
@@ -112,10 +104,10 @@ const IndexPage = () => {
       <main className="container mx-auto flex-grow py-8 px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center">
         {isInitialView ? (
           <div className="flex-grow flex flex-col items-center justify-center text-center">
-            <h1 className="text-[54px] font-bold tracking-tight mb-4 animate-fade-in" style={{ animationDelay: '0.2s' }}>
+            <h1 className="text-[54px] font-bold tracking-tight mb-2 animate-fade-in" style={{ animationDelay: '0.2s' }}>
               Drop. <span className="bg-gradient-to-r from-orange to-red bg-clip-text text-transparent">Sort.</span> <span className="bg-gradient-to-r from-primary to-violet bg-clip-text text-transparent">Discover.</span>
             </h1>
-            <p className="text-lg md:text-xl text-muted-foreground mb-8 animate-fade-in" style={{ animationDelay: '0.3s' }}>
+            <p className="text-lg md:text-xl text-muted-foreground mb-6 animate-fade-in" style={{ animationDelay: '0.3s' }}>
               Your mess, beautifully sorted.
             </p>
             <UploadZone onUpload={handleUploadClick} />
@@ -146,13 +138,6 @@ const IndexPage = () => {
       )}>
         MatchLens © {new Date().getFullYear()} - Created with Lovable.
       </footer>
-      {selectedCluster && (
-        <ImageGalleryModal
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          cluster={selectedCluster}
-        />
-      )}
       {!isInitialView && (
          <FilterSheet isOpen={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen} />
       )}

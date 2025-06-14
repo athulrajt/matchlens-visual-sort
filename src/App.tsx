@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"; // Keep if shadcn too
 // import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import IndexPage from "./pages/Index"; // Renamed for clarity
+import ClusterDetailPage from "./pages/ClusterDetail";
 import NotFound from "./pages/NotFound";
 
 // const queryClient = new QueryClient(); // Not used in V1
@@ -18,6 +19,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<IndexPage />} />
+          <Route path="/cluster/:clusterId" element={<ClusterDetailPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
