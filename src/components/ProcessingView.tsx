@@ -60,7 +60,7 @@ const ProcessingView: React.FC<ProcessingViewProps> = ({ files, isClustering }) 
 
       {files.length > 0 && !isClustering && (
          <div className="w-full max-w-4xl mx-auto mb-8">
-          <Progress value={totalProgress} className="h-2" />
+          <Progress value={totalProgress} className="h-2 [&>div]:bg-processing-gradient" />
           <p className="text-sm text-muted-foreground mt-2">{finishedFiles} / {totalFiles} images analyzed</p>
         </div>
       )}
@@ -82,3 +82,4 @@ const ProcessingView: React.FC<ProcessingViewProps> = ({ files, isClustering }) 
 };
 
 export default ProcessingView;
+

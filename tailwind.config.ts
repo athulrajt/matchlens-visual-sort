@@ -113,6 +113,11 @@ export default {
           from: { transform: 'translateX(20px)', opacity: '0' },
           to: { transform: 'translateX(0)', opacity: '1' },
         },
+        'gradient-pan': {
+          '0%': { backgroundPosition: '0% 50%' },
+          '50%': { backgroundPosition: '100% 50%' },
+          '100%': { backgroundPosition: '0% 50%' },
+        },
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
@@ -121,7 +126,11 @@ export default {
         'scale-in': 'scale-in 0.3s ease-out forwards',
         'border-pulse': 'border-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'slide-in-right': 'slide-in-right 0.4s ease-out forwards',
+        'gradient-pan': 'gradient-pan 6s ease-in-out infinite',
 			},
+      backgroundImage: {
+        'processing-gradient': 'linear-gradient(to right, hsl(var(--red)), hsl(var(--orange)), hsl(var(--primary)), hsl(262 80% 58%))',
+      },
       boxShadow: {
         'soft': '0 6px 24px rgba(0, 0, 0, 0.07)',
         'soft-lg': '0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.03)',
