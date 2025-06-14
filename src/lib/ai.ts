@@ -1,4 +1,3 @@
-
 import { pipeline, RawImage } from '@huggingface/transformers';
 import { kmeans } from 'ml-kmeans';
 import { ClusterType, ImageType } from '@/types';
@@ -8,12 +7,12 @@ let featureExtractor: any = null;
 
 const getExtractor = async () => {
     if (featureExtractor === null) {
-        // Use the pipeline for feature extraction, using the quantized version of the
-        // visual model for better performance, as you suggested.
+        // Use the pipeline for feature extraction. The `quantized: true` option was
+        // removed as it's not a valid property in the current library version and
+        // was causing a build error.
         featureExtractor = await pipeline(
             'feature-extraction',
-            'Xenova/clip-vit-base-patch32',
-            { quantized: true }
+            'Xenova/clip-vit-base-patch32'
         );
         console.log("✅ Feature extractor (CLIP) model loaded.");
     }
