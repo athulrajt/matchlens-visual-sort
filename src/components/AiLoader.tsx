@@ -1,19 +1,25 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, memo } from 'react';
 import Lottie from 'lottie-react';
 import { cn } from '@/lib/utils';
 
+// Cache the animation data to prevent re-fetching on re-renders
+let cachedAnimationData: any = null;
+
 const AiLoader = ({ className }: { className?: string }) => {
-  const [animationData, setAnimationData] = useState(null);
+  const [animationData, setAnimationData] = useState(cachedAnimationData);
 
   useEffect(() => {
-    // Fetch animation data from the public folder
-    fetch('/ailoading.json')
-      .then((response) => response.json())
-      .then((data) => {
-        setAnimationData(data);
-      })
-      .catch((error) => console.error('Error loading animation data:', error));
+    // Only fetch if we don't have the data cached
+    if (!cachedAnimationData) {
+      fetch('/ailoading.json')
+        .then((response) => response.json())
+        .then((data) => {
+          cachedAnimationData = data;
+          setAnimationData(data);
+        })
+        .catch((error) => console.error('Error loading animation data:', error));
+    }
   }, []);
 
   if (!animationData) {
@@ -35,4 +41,5 @@ const AiLoader = ({ className }: { className?: string }) => {
   );
 };
 
-export default AiLoader;
+export default memo(AiLoader);
+

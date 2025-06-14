@@ -92,7 +92,36 @@ const IndexPage = () => {
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
-      const newFiles = Array.from(files).map((file, i) => ({
+      const allFiles = Array.from(files);
+      const maxSizeInBytes = 500 * 1024; // 500kb
+
+      const validFiles = allFiles.filter(file => {
+        if (file.size > maxSizeInBytes) {
+          toast.warning(`Skipping "${file.name}"`, {
+            description: `File is larger than the 500kb limit.`,
+          });
+          return false;
+        }
+        return true;
+      });
+
+      if (validFiles.length < allFiles.length && validFiles.length > 0) {
+        toast.info(`${allFiles.length - validFiles.length} file(s) were skipped due to size limits.`);
+      }
+
+      if (validFiles.length === 0) {
+        if (allFiles.length > 0) {
+            toast.error("No valid files selected", {
+                description: "All files were over the 500kb size limit.",
+            });
+        }
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+        return;
+      }
+      
+      const newFiles = validFiles.map((file, i) => ({
         id: `${file.name}-${i}`,
         url: URL.createObjectURL(file),
         name: file.name,
@@ -109,7 +138,7 @@ const IndexPage = () => {
         duration: 8000,
       });
       try {
-        const fileObjects = Array.from(files);
+        const fileObjects = validFiles;
         
         const onProgress = ({ imageId, progress }: { imageId: string, progress: number }) => {
             setProcessingFiles(prevFiles => 
