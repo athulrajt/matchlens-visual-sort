@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ClusterType, ImageType } from '@/types';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Download } from 'lucide-react';
@@ -9,16 +9,35 @@ import { toast } from 'sonner';
 const ClusterDetailPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const cluster = location.state?.cluster as ClusterType | undefined;
+  const { clusterId } = useParams<{ clusterId?: string }>();
+  const [cluster, setCluster] = useState<ClusterType | undefined>(location.state?.cluster);
 
   useEffect(() => {
-    if (!cluster) {
-      toast.error("Cluster data not found. Returning to the main page.");
-      navigate('/');
+    if (cluster) {
+        window.scrollTo(0, 0);
+        return;
     }
-    // Scroll to top on page load
-    window.scrollTo(0, 0);
-  }, [cluster, navigate]);
+
+    if (clusterId) {
+        try {
+            const storedClustersRaw = sessionStorage.getItem('clusters');
+            if (storedClustersRaw) {
+                const storedClusters = JSON.parse(storedClustersRaw) as ClusterType[];
+                const foundCluster = storedClusters.find(c => c.id === clusterId);
+                if (foundCluster) {
+                    setCluster(foundCluster);
+                    window.scrollTo(0, 0);
+                    return;
+                }
+            }
+        } catch (error) {
+            console.error("Error loading cluster from session storage", error);
+        }
+    }
+    
+    toast.error("Cluster data not found. Returning to the main page.");
+    navigate('/');
+  }, [cluster, clusterId, navigate]);
 
   if (!cluster) {
     return (

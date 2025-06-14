@@ -66,14 +66,15 @@ const ProcessingView: React.FC<ProcessingViewProps> = ({ files, isClustering }) 
       )}
 
       {files.length > 0 && (
-        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 sm:gap-4 max-w-5xl">
+        <div className="flex flex-row flex-wrap justify-center gap-2 sm:gap-4 max-w-5xl">
           {files.map(file => (
-            <ImageUploadCard
-              key={file.id}
-              url={file.url}
-              name={file.name}
-              progress={file.progress}
-            />
+            <div key={file.id} className="w-20">
+              <ImageUploadCard
+                url={file.url}
+                name={file.name}
+                progress={file.progress}
+              />
+            </div>
           ))}
         </div>
       )}
@@ -82,4 +83,3 @@ const ProcessingView: React.FC<ProcessingViewProps> = ({ files, isClustering }) 
 };
 
 export default ProcessingView;
-

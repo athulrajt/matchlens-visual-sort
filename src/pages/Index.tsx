@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
@@ -14,7 +13,15 @@ import { clusterImages } from '@/lib/ai';
 import ProcessingView, { ProcessingFile } from '@/components/ProcessingView';
 
 const IndexPage = () => {
-  const [clusters, setClusters] = useState<ClusterType[]>([]);
+  const [clusters, setClusters] = useState<ClusterType[]>(() => {
+    try {
+      const storedClusters = sessionStorage.getItem('clusters');
+      return storedClusters ? JSON.parse(storedClusters) : [];
+    } catch (error) {
+      console.error("Error reading clusters from session storage", error);
+      return [];
+    }
+  });
   const [filteredClusters, setFilteredClusters] = useState<ClusterType[]>([]);
   const [activeFilters, setActiveFilters] = useState<{ tags: string[] }>({ tags: [] });
   const [isLoading, setIsLoading] = useState(false);
@@ -41,6 +48,18 @@ const IndexPage = () => {
         cluster.images.forEach(image => URL.revokeObjectURL(image.url));
       });
     };
+  }, [clusters]);
+
+  useEffect(() => {
+    try {
+      if (clusters.length > 0) {
+        sessionStorage.setItem('clusters', JSON.stringify(clusters));
+      } else {
+        sessionStorage.removeItem('clusters');
+      }
+    } catch (error) {
+      console.error("Error writing clusters to session storage", error);
+    }
   }, [clusters]);
 
   const allTags = useMemo(() => {
