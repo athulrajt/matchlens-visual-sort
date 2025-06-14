@@ -65,7 +65,6 @@ const IndexPage = () => {
   });
 
   const [clusters, setClusters] = useState<ClusterType[]>([]);
-  const [filteredClusters, setFilteredClusters] = useState<ClusterType[]>([]);
   const [activeFilters, setActiveFilters] = useState<{ tags: string[] }>({ tags: [] });
   const [isProcessing, setIsProcessing] = useState(false);
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
@@ -108,15 +107,13 @@ const IndexPage = () => {
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [location.state, navigate, location.pathname]);
-
-  // Effect to clean up object URLs on unmount or when clusters change
+  
+  // This effect cleans up temporary blob URLs used in the processing view.
   useEffect(() => {
     return () => {
-      clusters.forEach(cluster => {
-        cluster.images.forEach(image => URL.revokeObjectURL(image.url));
-      });
+      processingFiles.forEach(file => URL.revokeObjectURL(file.url));
     };
-  }, [clusters]);
+  }, [processingFiles]);
 
   useEffect(() => {
     try {
@@ -138,19 +135,16 @@ const IndexPage = () => {
     return Array.from(tags);
   }, [clusters]);
 
-  useEffect(() => {
+  const filteredClusters = useMemo(() => {
     if (activeFilters.tags.length === 0) {
-      setFilteredClusters(clusters);
-      return;
+      return clusters;
     }
     const lowerCaseFilterTags = activeFilters.tags.map(t => t.toLowerCase());
 
-    const newFilteredClusters = clusters.filter(cluster => {
+    return clusters.filter(cluster => {
       if (!cluster.tags || cluster.tags.length === 0) return false;
       return cluster.tags.some(clusterTag => lowerCaseFilterTags.includes(clusterTag.toLowerCase()));
     });
-
-    setFilteredClusters(newFilteredClusters);
   }, [clusters, activeFilters]);
 
   const handleUploadClick = () => {
@@ -158,7 +152,7 @@ const IndexPage = () => {
   };
 
   const uploadMutation = useMutation({
-    mutationFn: async (files: File[]) => {
+    mutationFn: async ({ files, nameToFileMap }: { files: File[], nameToFileMap: Map<string, File> }) => {
       if (!user) throw new Error("You must be logged in to upload images.");
 
       const { count, error: countError } = await supabase
@@ -171,19 +165,12 @@ const IndexPage = () => {
         throw new Error("You've reached the limit of 15 collections. Please delete some to continue.");
       }
 
-      const blobUrlToFileMap = new Map<string, File>();
-      const filesForAI = files.map(file => {
-        const url = URL.createObjectURL(file);
-        blobUrlToFileMap.set(url, file);
-        return file;
-      });
-
       const onProgress = ({ imageId, progress }: { imageId: string, progress: number }) => {
         setProcessingFiles(prevFiles => prevFiles.map(f => f.id === imageId ? { ...f, progress } : f));
       };
       const beforeClustering = () => setIsClustering(true);
 
-      const newClustersFromAI = await clusterImages(filesForAI, onProgress, beforeClustering);
+      const newClustersFromAI = await clusterImages(files, onProgress, beforeClustering);
 
       if (newClustersFromAI.length === 0) {
         throw new Error("The AI could not create any clusters from your images.");
@@ -203,14 +190,18 @@ const IndexPage = () => {
         if (clusterError) throw clusterError;
 
         for (const image of cluster.images) {
-          const file = blobUrlToFileMap.get(image.url);
-          if (!file) continue;
+          const file = nameToFileMap.get(image.alt);
+          if (!file) {
+            console.warn(`File not found for image: ${image.alt}`);
+            continue;
+          }
 
-          const imagePath = `${user.id}/${newCluster.id}/${file.name}`;
+          const imagePath = `${user.id}/${newCluster.id}/${uuidv4()}-${file.name}`;
           const { error: uploadError } = await supabase.storage.from('cluster-images').upload(imagePath, file);
 
           if (uploadError) {
             console.error('Failed to upload image', uploadError);
+            toast.error(`Failed to upload ${file.name}`, { description: uploadError.message });
             continue;
           }
 
@@ -220,7 +211,6 @@ const IndexPage = () => {
             image_path: imagePath,
             alt: file.name,
           });
-          URL.revokeObjectURL(image.url);
         }
       }
       return newClustersFromAI;
@@ -263,15 +253,13 @@ const IndexPage = () => {
             }))
         }));
 
-        const clustersForStorage = tempClustersForState.map(c => ({ ...c, images: [] }));
-
         const currentLocalClustersRaw = localStorage.getItem('guestClusters');
         const currentLocalClusters = currentLocalClustersRaw ? JSON.parse(currentLocalClustersRaw) : [];
         
-        const updatedLocalClustersForStorage = [...clustersForStorage, ...currentLocalClusters];
-        localStorage.setItem('guestClusters', JSON.stringify(updatedLocalClustersForStorage));
+        const updatedLocalClusters = [...tempClustersForState, ...currentLocalClusters];
+        localStorage.setItem('guestClusters', JSON.stringify(updatedLocalClusters));
 
-        setClusters([...tempClustersForState, ...currentLocalClusters]);
+        setClusters(updatedLocalClusters);
         
         toast.success(`Successfully created ${newClustersFromAI.length} new collection(s)!`, {
             description: "Collections are saved in your browser, but images are temporary. Sign up to save them permanently."
@@ -305,6 +293,11 @@ const IndexPage = () => {
         if (fileInputRef.current) fileInputRef.current.value = "";
         return;
     }
+    
+    const nameToFileMap = new Map<string, File>();
+    validFiles.forEach(file => {
+      nameToFileMap.set(file.name, file);
+    });
 
     const newFilesForUI = validFiles.map((file, i) => ({
       id: `${file.name}-${i}`,
@@ -314,7 +307,6 @@ const IndexPage = () => {
     }));
 
     setProcessingFiles(newFilesForUI);
-    setFilteredClusters([]);
     setActiveFilters({ tags: [] });
     setIsProcessing(true);
     setIsClustering(false);
@@ -322,7 +314,7 @@ const IndexPage = () => {
     toast.info("Warming up the AI... This may take a moment.");
     
     if (user) {
-      uploadMutation.mutate(validFiles);
+      uploadMutation.mutate({ files: validFiles, nameToFileMap });
     } else {
       handleGuestUpload(validFiles);
     }
