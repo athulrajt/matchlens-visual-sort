@@ -4,7 +4,7 @@ import { ClusterType, ImageType } from '@/types';
 
 // Caches for our AI pipelines to avoid reloading models.
 let featureExtractor: any = null;
-let styleClassifier: any = null;
+let captioner: any = null;
 
 // Configure transformers.js to fetch models from the Hub.
 env.allowLocalModels = false;
@@ -32,19 +32,19 @@ const getFeatureExtractor = async () => {
 };
 
 /**
- * Gets a cached zero-shot-image-classification pipeline.
- * This is used to classify images into predefined style categories.
+ * Gets a cached image-to-text pipeline.
+ * This is used to generate descriptive captions for images, which are then turned into tags.
  */
-const getStyleClassifier = async () => {
-    if (styleClassifier === null) {
-        styleClassifier = await pipeline(
-            'zero-shot-image-classification',
-            'Xenova/clip-vit-base-patch32'
+const getCaptioner = async () => {
+    if (captioner === null) {
+        captioner = await pipeline(
+            'image-to-text',
+            'Salesforce/blip-image-captioning-base'
         );
-        console.log("✅ Style classifier (for aesthetics) model loaded.");
+        console.log("✅ Captioner (for tagging) model loaded.");
     }
-    return styleClassifier;
-}
+    return captioner;
+};
 
 /**
  * Extracts a color palette from an image using the k-means algorithm on its pixels.
@@ -95,8 +95,32 @@ const getPaletteFromImage = (imageUrl: string, colorCount = 5): Promise<string[]
 };
 
 /**
- * Takes an array of image files, classifies them by style, and then groups them.
- * Images that don't fit a style are clustered by visual similarity.
+ * Generates a list of tags for an image by creating a caption and processing it.
+ * @param captioner The image-to-text pipeline instance.
+ * @param image The RawImage to process.
+ * @returns A promise that resolves to an array of string tags.
+ */
+const getTagsForImage = async (captioner: any, image: RawImage): Promise<string[]> => {
+    try {
+        const result = await captioner(image, { max_new_tokens: 20 });
+        const text = result[0]?.generated_text.toLowerCase() || '';
+        
+        // Clean up common caption prefixes and split into tags
+        const tags = text
+            .replace(/^a (photography|photo|picture) of /i, '')
+            .split(/[,.\-–\s]/)
+            .map(tag => tag.trim())
+            .filter(t => t.length > 2 && t.length < 20); // Filter for meaningful tags
+
+        return [...new Set(tags)]; // Return unique tags
+    } catch (e) {
+        console.error("Failed to generate tags for an image:", e);
+        return [];
+    }
+};
+
+/**
+ * Takes an array of image files, generates tags for them, and clusters them based on shared tags.
  * @param files An array of image files.
  * @returns A promise that resolves to an array of ClusterType objects.
  */
@@ -110,11 +134,12 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
     if (imageFiles.length === 0) return [];
     
     // Initialize both AI pipelines
-    const classifier = await getStyleClassifier();
-    const extractor = await getFeatureExtractor();
+    const captionerPipeline = await getCaptioner();
+    // We still need the extractor for potential future use or more advanced clustering
+    await getFeatureExtractor(); 
     console.log("✅ AI pipelines ready for processing.");
 
-    // 1. Process all images to get style labels and feature embeddings
+    // 1. Process all images to get tags and other info
     const processingResults = await Promise.all(
         imageFiles.map(async (file, i) => {
             const imageInfo: ImageType = {
@@ -125,22 +150,10 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
 
             try {
                 const image = await RawImage.read(file);
+                const tags = await getTagsForImage(captionerPipeline, image);
+                console.log(`✅ Processed ${file.name}: Tags - [${tags.join(', ')}]`);
 
-                // Classify image against our defined style labels
-                const stylePredictions = await classifier(image, STYLE_LABELS, { top_k: 1 });
-                const primaryStyle = stylePredictions[0];
-
-                // Also get feature embedding for the similarity fallback
-                const embeddingTensor = await extractor(image, { pooling: 'mean', normalize: true });
-                const embedding = Array.from(embeddingTensor.data as Float32Array);
-
-                console.log(`✅ Processed ${file.name}: Style - ${primaryStyle.label} (${primaryStyle.score.toFixed(2)})`);
-
-                return {
-                    info: imageInfo,
-                    label: primaryStyle.score > 0.35 ? primaryStyle.label : 'miscellaneous', // Confidence threshold
-                    embedding: embedding
-                };
+                return { info: imageInfo, tags };
             } catch (err) {
                 console.error(`❌ Failed to process image ${imageInfo.alt}:`, err);
                 URL.revokeObjectURL(imageInfo.url); // Prevent memory leak on error
@@ -149,81 +162,68 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
         })
     );
     
-    const validResults = processingResults.filter(Boolean) as { info: ImageType, label: string, embedding: number[] }[];
+    const validResults = processingResults.filter(Boolean) as { info: ImageType, tags: string[] }[];
     if (validResults.length === 0) return [];
 
-    // 2. Separate images into style groups and a miscellaneous group
-    const styleGroups: Record<string, { info: ImageType, embedding: number[] }[]> = {};
-    const miscellaneousGroup: { info: ImageType, embedding: number[] }[] = [];
+    // 2. Cluster images using a greedy algorithm based on most frequent shared tags
+    const finalClusters: (ClusterType | null)[] = [];
+    let unclustered = [...validResults];
+    const minClusterSize = 2;
 
-    validResults.forEach(result => {
-        if (result.label === 'miscellaneous') {
-            miscellaneousGroup.push(result);
-        } else {
-            if (!styleGroups[result.label]) styleGroups[result.label] = [];
-            styleGroups[result.label].push(result);
-        }
-    });
-
-    // 3. Create final clusters from the distinct style groups
-    let finalClusters: (ClusterType | null)[] = await Promise.all(
-        Object.entries(styleGroups).map(async ([style, items]) => {
-            if (items.length === 0) return null;
-
-            const images = items.map(item => item.info);
-            const palette = await getPaletteFromImage(images[0].url).catch(() => []);
-            const title = `Style: ${style.charAt(0).toUpperCase() + style.slice(1)}`;
-
-            return {
-                id: `cluster-style-${style}-${Date.now()}`,
-                title: title,
-                description: `A collection of ${images.length} images with a ${style} aesthetic.`,
-                images,
-                palette,
-            };
-        })
-    );
-
-    // 4. Handle miscellaneous images using k-means similarity clustering
-    if (miscellaneousGroup.length > 0) {
-        if (miscellaneousGroup.length < 2) {
-            const { info } = miscellaneousGroup[0];
-            const palette = await getPaletteFromImage(info.url).catch(() => []);
-            finalClusters.push({
-                id: `cluster-single-${info.id}`,
-                title: 'Miscellaneous Image',
-                description: 'This image did not fit a specific style category.',
-                images: [info],
-                palette,
+    while (unclustered.length >= minClusterSize) {
+        const tagFrequencies: Record<string, number> = {};
+        unclustered.forEach(result => {
+            result.tags.forEach(tag => {
+                tagFrequencies[tag] = (tagFrequencies[tag] || 0) + 1;
             });
-        } else {
-            const miscEmbeddings = miscellaneousGroup.map(r => r.embedding);
-            const miscImageInfos = miscellaneousGroup.map(r => r.info);
-            
-            const k = Math.min(Math.max(2, Math.ceil(miscImageInfos.length / 5)), 8, miscImageInfos.length);
-            const kmeansResult = kmeans(miscEmbeddings, k, { initialization: 'kmeans++' });
-            
-            const tempClusters: { [key: number]: ImageType[] } = {};
-            kmeansResult.clusters.forEach((clusterIndex, imageIndex) => {
-                if (!tempClusters[clusterIndex]) tempClusters[clusterIndex] = [];
-                tempClusters[clusterIndex].push(miscImageInfos[imageIndex]);
-            });
+        });
 
-            const miscClusters = await Promise.all(
-                Object.values(tempClusters).map(async (images, index) => {
-                    if (images.length === 0) return null;
-                    const palette = await getPaletteFromImage(images[0].url).catch(() => []);
-                    return {
-                        id: `cluster-misc-${index}-${Date.now()}`,
-                        title: `Miscellaneous Cluster ${index + 1}`,
-                        description: `A group of ${images.length} visually similar images.`,
-                        images,
-                        palette,
-                    };
-                })
-            );
-            finalClusters.push(...miscClusters);
-        }
+        const bestTag = Object.entries(tagFrequencies)
+            .filter(([, count]) => count >= minClusterSize)
+            .sort(([, a], [, b]) => b - a)[0];
+
+        if (!bestTag) break; // No more tags can form a valid cluster
+
+        const [clusterTag] = bestTag;
+        
+        const newClusterItems = unclustered.filter(r => r.tags.includes(clusterTag));
+        unclustered = unclustered.filter(r => !r.tags.includes(clusterTag));
+
+        const images = newClusterItems.map(item => item.info);
+        const palette = await getPaletteFromImage(images[0].url).catch(() => []);
+        
+        const allClusterTags = newClusterItems.flatMap(i => i.tags);
+        const topTags = Object.entries(allClusterTags.reduce((acc, tag) => ({ ...acc, [tag]: (acc[tag] || 0) + 1 }), {} as Record<string, number>))
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, 5)
+            .map(([tag]) => tag);
+
+        finalClusters.push({
+            id: `cluster-tag-${clusterTag}-${Date.now()}`,
+            title: `${clusterTag.charAt(0).toUpperCase() + clusterTag.slice(1)} Collection`,
+            description: `A collection of ${images.length} images related to "${clusterTag}".`,
+            images,
+            palette,
+            tags: topTags,
+        });
+    }
+
+    // 3. Handle any leftover images as single-item miscellaneous clusters
+    if (unclustered.length > 0) {
+        const miscClusters = await Promise.all(
+            unclustered.map(async ({ info, tags }) => {
+                const palette = await getPaletteFromImage(info.url).catch(() => []);
+                return {
+                    id: `cluster-single-${info.id}`,
+                    title: 'Miscellaneous Image',
+                    description: 'This image did not fit into a larger category.',
+                    images: [info],
+                    palette,
+                    tags,
+                };
+            })
+        );
+        finalClusters.push(...miscClusters);
     }
     
     return finalClusters.filter(Boolean) as ClusterType[];

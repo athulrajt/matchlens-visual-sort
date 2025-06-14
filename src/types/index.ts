@@ -11,4 +11,5 @@ export interface ClusterType {
   images: ImageType[];
   palette: string[]; // Array of hex color strings
   description?: string; // Optional description for the cluster
+  tags?: string[]; // Optional: Tags that define the cluster
 }

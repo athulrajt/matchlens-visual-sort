@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { ClusterType } from '@/types';
-import { Eye, Download } from 'lucide-react';
+import { Eye, Download, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface ClusterCardProps {
@@ -43,6 +43,18 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster }) => 
           )}
         </div>
         
+        {cluster.tags && cluster.tags.length > 0 && (
+          <div className="mb-4">
+            <div className="flex flex-wrap gap-1.5">
+              {cluster.tags.slice(0, 4).map((tag) => (
+                <span key={tag} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="mb-4">
           <p className="text-xs text-muted-foreground mb-1">Dominant Colors:</p>
           <div className="flex space-x-1 h-3">
