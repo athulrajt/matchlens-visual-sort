@@ -10,7 +10,9 @@ const getExtractor = async () => {
   if (extractor === null) {
     // Using a lightweight CLIP model for fast feature extraction in the browser.
     // The model will be downloaded on the first use.
-    extractor = await pipeline('feature-extraction', 'Xenova/clip-vit-base-patch32');
+    // We specify quantized: false because the default quantized version of this model is broken.
+    // See: https://huggingface.co/Xenova/clip-vit-base-patch32/discussions/8
+    extractor = await pipeline('feature-extraction', 'Xenova/clip-vit-base-patch32', { quantized: false });
   }
   return extractor;
 };
