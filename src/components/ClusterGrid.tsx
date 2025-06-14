@@ -7,9 +7,10 @@ import { LayoutGrid } from 'lucide-react';
 interface ClusterGridProps {
   clusters: ClusterType[];
   onViewCluster: (cluster: ClusterType) => void;
+  onDeleteCluster: (clusterId: string) => void;
 }
 
-const ClusterGrid: React.FC<ClusterGridProps> = ({ clusters, onViewCluster }) => {
+const ClusterGrid: React.FC<ClusterGridProps> = ({ clusters, onViewCluster, onDeleteCluster }) => {
   if (clusters.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center p-8 animate-fade-in">
@@ -30,7 +31,12 @@ const ClusterGrid: React.FC<ClusterGridProps> = ({ clusters, onViewCluster }) =>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {clusters.map((cluster) => (
-          <ClusterCard key={cluster.id} cluster={cluster} onViewCluster={onViewCluster} />
+          <ClusterCard
+            key={cluster.id}
+            cluster={cluster}
+            onViewCluster={onViewCluster}
+            onDeleteCluster={onDeleteCluster}
+          />
         ))}
       </div>
     </main>
