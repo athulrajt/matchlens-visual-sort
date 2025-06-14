@@ -43,21 +43,26 @@ const IndexPage = () => {
   const isInitialView = clusters.length === 0 && !isLoading;
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen bg-transparent">
       <Header 
         showTopUploadButton={!isInitialView}
         onTopUploadClick={handleSimulateUpload}
         showFilterButton={!isInitialView}
         onFilterButtonClick={() => setIsFilterSheetOpen(true)}
       />
-      <main className="container mx-auto flex-grow py-8 px-4 sm:px-6 lg:px-8 flex flex-col"> {/* Added flex flex-col */}
+      <main className="container mx-auto flex-grow py-8 px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center">
         {isInitialView ? (
           <div className="flex-grow flex flex-col items-center justify-center text-center">
-            {/* The Header already shows MatchLens name and subtitle */}
+            <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-4 animate-fade-in" style={{ animationDelay: '0.2s' }}>
+              Drop. Sort. <span className="text-primary">Discover.</span>
+            </h1>
+            <p className="text-lg md:text-xl text-muted-foreground mb-8 animate-fade-in" style={{ animationDelay: '0.3s' }}>
+              Your mess, beautifully sorted.
+            </p>
             <UploadZone onSimulateUpload={handleSimulateUpload} />
           </div>
         ) : (
-          <div className="flex-1"> {/* Removed outer flex md:flex-row, simplified structure */}
+          <div className="flex-1 w-full">
             {isLoading ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-8 h-96">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
@@ -76,7 +81,7 @@ const IndexPage = () => {
           </div>
         )}
       </main>
-      <footer className="text-center py-6 border-t border-border/60 text-sm text-muted-foreground">
+      <footer className="text-center py-6 border-t border-border/60 text-sm text-muted-foreground bg-background/80 backdrop-blur-sm">
         MatchLens © {new Date().getFullYear()} - Created with Lovable.
       </footer>
       {selectedCluster && (

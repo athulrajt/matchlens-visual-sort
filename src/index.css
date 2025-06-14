@@ -95,6 +95,10 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    background-image: url('/lovable-uploads/f0b60c5d-6e20-4eff-b5d3-cb0894465ee8.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     min-height: 100vh;
   }
   #root {
