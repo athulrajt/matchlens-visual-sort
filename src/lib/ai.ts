@@ -1,23 +1,27 @@
 
-import { pipeline, RawImage } from '@huggingface/transformers';
+import { pipeline, RawImage, env } from '@huggingface/transformers';
 import { kmeans } from 'ml-kmeans';
 import { ClusterType, ImageType } from '@/types';
 
 // To prevent re-initializing the model on every upload, we'll cache the pipeline.
 let featureExtractor: any = null;
 
+// Configure transformers.js to fetch models from the Hub and disable local models/caching.
+// This helps prevent issues with stale or corrupted caches.
+env.allowLocalModels = false;
+env.useBrowserCache = false;
+
 const getExtractor = async () => {
     if (featureExtractor === null) {
-        // The previous model (MobileNetV2) caused a 401 Unauthorized error when fetching
-        // its configuration files. This might be a temporary issue with Hugging Face's CDN
-        // or an access problem with that specific model repository.
-        // To work around this, we will switch to another standard and highly reliable vision model:
-        // Google's Vision Transformer (ViT).
+        // We've encountered a series of errors (401, 404, config issues) with various models.
+        // This usually means the model isn't set up for easy use with the transformers.js library.
+        // We will now use a model that is specifically maintained for this library by its creator,
+        // Xenova. `clip-vit-base-patch32` is a robust and reliable choice for this task.
         featureExtractor = await pipeline(
             'image-feature-extraction',
-            'google/vit-base-patch16-224'
+            'Xenova/clip-vit-base-patch32'
         );
-        console.log("✅ Feature extractor (Google's ViT) model loaded.");
+        console.log("✅ Feature extractor (Xenova's CLIP) model loaded.");
     }
     return featureExtractor;
 };
