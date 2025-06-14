@@ -14,6 +14,7 @@ import ProcessingView, { ProcessingFile } from '@/components/ProcessingView';
 import { useAuth } from '@/contexts/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { v4 as uuidv4 } from 'uuid';
 
 const IndexPage = () => {
   const { user } = useAuth();
@@ -21,7 +22,7 @@ const IndexPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const { data: clusters = [], isLoading: isLoadingClusters, refetch: refetchClusters } = useQuery<ClusterType[]>({
+  const { data: supabaseClusters = [], isLoading: isLoadingClusters, refetch: refetchClusters } = useQuery<ClusterType[]>({
     queryKey: ['clusters', user?.id],
     queryFn: async () => {
       if (!user) return [];
@@ -63,6 +64,7 @@ const IndexPage = () => {
     enabled: !!user,
   });
 
+  const [clusters, setClusters] = useState<ClusterType[]>([]);
   const [filteredClusters, setFilteredClusters] = useState<ClusterType[]>([]);
   const [activeFilters, setActiveFilters] = useState<{ tags: string[] }>({ tags: [] });
   const [isProcessing, setIsProcessing] = useState(false);
@@ -71,6 +73,25 @@ const IndexPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [processingFiles, setProcessingFiles] = useState<ProcessingFile[]>([]);
   const [isClustering, setIsClustering] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setClusters(supabaseClusters);
+    } else {
+      try {
+        const localClustersRaw = localStorage.getItem('guestClusters');
+        if (localClustersRaw) {
+          const localClusters = JSON.parse(localClustersRaw);
+          setClusters(localClusters);
+        } else {
+          setClusters([]);
+        }
+      } catch (error) {
+        console.error("Error loading guest clusters from local storage", error);
+        setClusters([]);
+      }
+    }
+  }, [user, supabaseClusters]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -133,10 +154,6 @@ const IndexPage = () => {
   }, [clusters, activeFilters]);
 
   const handleUploadClick = () => {
-    if (!user) {
-      toast.info("Please sign in to create a collection.");
-      return;
-    }
     fileInputRef.current?.click();
   };
 
@@ -222,13 +239,55 @@ const IndexPage = () => {
     }
   });
 
+  const handleGuestUpload = async (files: File[]) => {
+    setIsProcessing(true);
+    setIsClustering(false);
+    try {
+        const onProgress = ({ imageId, progress }: { imageId: string, progress: number }) => {
+            setProcessingFiles(prevFiles => prevFiles.map(f => f.id === imageId ? { ...f, progress } : f));
+        };
+        const beforeClustering = () => setIsClustering(true);
+        
+        const newClustersFromAI = await clusterImages(files, onProgress, beforeClustering);
+
+        if (newClustersFromAI.length === 0) {
+            throw new Error("The AI could not create any clusters from your images.");
+        }
+
+        const tempClustersForState = newClustersFromAI.map(cluster => ({
+            ...cluster,
+            id: uuidv4(),
+            images: cluster.images.map(image => ({
+                ...image,
+                id: uuidv4(),
+            }))
+        }));
+
+        const clustersForStorage = tempClustersForState.map(c => ({ ...c, images: [] }));
+
+        const currentLocalClustersRaw = localStorage.getItem('guestClusters');
+        const currentLocalClusters = currentLocalClustersRaw ? JSON.parse(currentLocalClustersRaw) : [];
+        
+        const updatedLocalClustersForStorage = [...clustersForStorage, ...currentLocalClusters];
+        localStorage.setItem('guestClusters', JSON.stringify(updatedLocalClustersForStorage));
+
+        setClusters([...tempClustersForState, ...currentLocalClusters]);
+        
+        toast.success(`Successfully created ${newClustersFromAI.length} new collection(s)!`, {
+            description: "Collections are saved in your browser, but images are temporary. Sign up to save them permanently."
+        });
+    } catch (error: any) {
+        toast.error("An error occurred", { description: error.message });
+    } finally {
+        setIsProcessing(false);
+        setIsClustering(false);
+        setProcessingFiles([]);
+    }
+  };
+
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
-    if (!user) {
-        toast.error("You must be logged in.");
-        return;
-    }
 
     const allFiles = Array.from(files);
     const maxSizeInBytes = 500 * 1024; // 500kb
@@ -261,7 +320,12 @@ const IndexPage = () => {
     setIsClustering(false);
 
     toast.info("Warming up the AI... This may take a moment.");
-    uploadMutation.mutate(validFiles);
+    
+    if (user) {
+      uploadMutation.mutate(validFiles);
+    } else {
+      handleGuestUpload(validFiles);
+    }
 
     if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -300,8 +364,25 @@ const IndexPage = () => {
   });
 
   const handleDeleteCluster = (clusterId: string) => {
-    if (!user) return;
-    deleteClusterMutation.mutate(clusterId);
+    if (user) {
+      deleteClusterMutation.mutate(clusterId);
+      return;
+    }
+    
+    // Guest user logic
+    const currentLocalClustersRaw = localStorage.getItem('guestClusters');
+    if (currentLocalClustersRaw) {
+        const currentLocalClusters: ClusterType[] = JSON.parse(currentLocalClustersRaw);
+        const updatedLocalClusters = currentLocalClusters.filter(c => c.id !== clusterId);
+        localStorage.setItem('guestClusters', JSON.stringify(updatedLocalClusters));
+    }
+
+    const clusterToDelete = clusters.find(c => c.id === clusterId);
+    if (clusterToDelete) {
+        clusterToDelete.images.forEach(image => URL.revokeObjectURL(image.url));
+    }
+    setClusters(current => current.filter(c => c.id !== clusterId));
+    toast.success(`Collection has been deleted.`);
   };
 
   const clearClustersMutation = useMutation({
@@ -330,8 +411,19 @@ const IndexPage = () => {
   });
 
   const handleClearClusters = () => {
-    if (!user) return;
-    clearClustersMutation.mutate();
+    if (user) {
+      clearClustersMutation.mutate();
+      return;
+    }
+
+    // Guest user logic
+    clusters.forEach(cluster => {
+        cluster.images.forEach(image => URL.revokeObjectURL(image.url));
+    });
+
+    localStorage.removeItem('guestClusters');
+    setClusters([]);
+    toast.info("All your local collections have been cleared.");
   };
 
   const handleApplyFilters = (filters: { tags: string[] }) => {
