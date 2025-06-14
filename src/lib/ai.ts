@@ -1,6 +1,5 @@
-
 import { pipeline } from '@huggingface/transformers';
-import kmeans from 'ml-kmeans';
+import { kmeans } from 'ml-kmeans';
 import { ClusterType, ImageType } from '@/types';
 
 // To prevent re-initializing the model on every upload, we'll cache it.
