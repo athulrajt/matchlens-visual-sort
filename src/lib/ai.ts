@@ -1,3 +1,4 @@
+
 import { pipeline, RawImage } from '@huggingface/transformers';
 import { kmeans } from 'ml-kmeans';
 import { ClusterType, ImageType } from '@/types';
@@ -7,15 +8,16 @@ let featureExtractor: any = null;
 
 const getExtractor = async () => {
     if (featureExtractor === null) {
-        // The previous model (ViT) caused an error because the generic 'feature-extraction'
-        // pipeline tried to load a tokenizer, which doesn't exist for vision-only models.
-        // To fix this, we'll use the more specific 'image-feature-extraction' task
-        // and switch to a standard vision model (MobileNetV2) that is known to work reliably.
+        // The previous model (MobileNetV2) caused a 401 Unauthorized error when fetching
+        // its configuration files. This might be a temporary issue with Hugging Face's CDN
+        // or an access problem with that specific model repository.
+        // To work around this, we will switch to another standard and highly reliable vision model:
+        // Google's Vision Transformer (ViT).
         featureExtractor = await pipeline(
             'image-feature-extraction',
-            'Xenova/mobilenetv2-1.0-224'
+            'google/vit-base-patch16-224'
         );
-        console.log("✅ Feature extractor (MobileNetV2) model loaded.");
+        console.log("✅ Feature extractor (Google's ViT) model loaded.");
     }
     return featureExtractor;
 };
