@@ -68,7 +68,8 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+        violet: 'hsl(262 80% 58%)',
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -76,6 +77,7 @@ export default {
 				sm: 'calc(var(--radius) - 4px)',
         '2xl': 'calc(var(--radius) + 4px)', // For softer, larger rounds as requested
         '3xl': 'calc(var(--radius) + 8px)',
+        '4xl': '26px',
 			},
 			keyframes: {
 				'accordion-down': {
@@ -110,7 +112,7 @@ export default {
         'scale-in': 'scale-in 0.3s ease-out forwards',
 			},
       boxShadow: {
-        'soft': '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+        'soft': '0 6px 24px rgba(0, 0, 0, 0.07)',
         'soft-lg': '0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.03)',
       }
 		}

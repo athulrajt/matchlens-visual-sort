@@ -44,6 +44,7 @@ const Header: React.FC<HeaderProps> = ({
               <span className="hidden sm:inline">Upload More</span>
             </Button>
           )}
+          <Button variant="ghost">Sign Up</Button>
         </div>
       </div>
       {/* Mobile filter button */}
