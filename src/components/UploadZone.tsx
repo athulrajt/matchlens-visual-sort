@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { UploadCloud, ImagePlus } from 'lucide-react';
+import { UploadCloud, ImagePlus, Zap } from 'lucide-react'; // Added Zap here
 import { Button } from '@/components/ui/button'; // Assuming shadcn button is available
 
 interface UploadZoneProps {
