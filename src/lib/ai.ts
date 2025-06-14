@@ -1,21 +1,28 @@
 
-import { pipeline, RawImage } from '@huggingface/transformers';
+import { AutoModel, CLIPProcessor, RawImage } from '@huggingface/transformers';
 import { kmeans } from 'ml-kmeans';
 import { ClusterType, ImageType } from '@/types';
 
-// To prevent re-initializing the model on every upload, we'll cache it.
-let extractor = null;
+// To prevent re-initializing the model on every upload, we'll cache them.
+let model: any = null;
+let processor: any = null;
 
 const getExtractor = async () => {
-  if (extractor === null) {
-    // The previous model, 'dinov2-base', failed because the feature-extraction pipeline
-    // was incorrectly trying to load a text tokenizer, which doesn't exist for that vision-only model.
-    // We are switching to 'Xenova/clip-vit-base-patch32', a standard and reliable Vision Transformer model.
-    // It's well-supported for this task and includes the necessary components for the pipeline to work correctly.
-    // We also explicitly set `quantized: false` to use the full-precision model for better accuracy and stability.
-    extractor = await pipeline('feature-extraction', 'Xenova/clip-vit-base-patch32', { quantized: false } as any);
-  }
-  return extractor;
+    if (model === null || processor === null) {
+        // We now use CLIPProcessor and AutoModel to have fine-grained control over the preprocessing,
+        // which resolves the "Missing pixel_values" error, as you correctly pointed out.
+        processor = await CLIPProcessor.from_pretrained('Xenova/clip-vit-base-patch32');
+        model = await AutoModel.from_pretrained('Xenova/clip-vit-base-patch32');
+    }
+
+    // Return a function that performs the extraction, including normalization.
+    return async (image: RawImage) => {
+        const inputs = await processor(image);
+        const outputs = await model(inputs);
+        // The output for CLIP-like models is in `pooler_output`.
+        // We normalize the embeddings, which is crucial for similarity calculations.
+        return outputs.pooler_output.normalize(2, -1);
+    };
 };
 
 /**
@@ -89,8 +96,9 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
 
     if (imageFiles.length === 0) return [];
     
+    // getExtractor now returns our custom processing function
     const featureExtractor = await getExtractor();
-    console.log("✅ Feature extractor loaded:", !!featureExtractor);
+    console.log("✅ Feature extractor components loaded.");
 
     // 1. Extract embeddings for all images in parallel, handling errors
     const embeddingResults = await Promise.all(
@@ -103,20 +111,19 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
             };
 
             try {
-                // Reverting to RawImage.fromBlob() as it's a more direct and reliable way to handle local files
-                // compared to passing blob URLs, which was causing issues.
                 const image = await RawImage.fromBlob(file);
                 
-                const res = await featureExtractor(image, { pooling: 'mean', normalize: true });
+                // Use the new extractor function which handles preprocessing
+                const embeddingTensor = await featureExtractor(image);
                 
                 console.log(`✅ Embedding extracted for ${file.name}.`);
 
-                if (!res || !res.data || !(res.data instanceof Float32Array)) {
-                    throw new Error(`Invalid result from feature extractor for ${file.name}. Expected Float32Array, got ${res?.data?.constructor?.name}.`);
+                if (!embeddingTensor || !embeddingTensor.data || !(embeddingTensor.data instanceof Float32Array)) {
+                     throw new Error(`Invalid result from feature extractor for ${file.name}. Expected a Tensor, got ${typeof embeddingTensor}.`);
                 }
 
                 return {
-                    embedding: Array.from(res.data as Float32Array),
+                    embedding: Array.from(embeddingTensor.data as Float32Array),
                     info: imageInfo
                 };
             } catch (err) {
