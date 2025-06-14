@@ -1,3 +1,4 @@
+
 import { pipeline } from '@huggingface/transformers';
 import { kmeans } from 'ml-kmeans';
 import { ClusterType, ImageType } from '@/types';
@@ -46,7 +47,7 @@ const getPaletteFromImage = (imageUrl: string, colorCount = 5): Promise<string[]
             if (pixels.length === 0) return resolve([]);
 
             // Use k-means to find dominant colors
-            const result = kmeans(pixels, Math.min(colorCount, pixels.length));
+            const result = kmeans(pixels, Math.min(colorCount, pixels.length), {});
             const palette = result.centroids.map(c => {
                  const r = Math.round(c[0]);
                  const g = Math.round(c[1]);
