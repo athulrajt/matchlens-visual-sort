@@ -1,4 +1,3 @@
-
 import { pipeline, RawImage } from '@huggingface/transformers';
 import { kmeans } from 'ml-kmeans';
 import { ClusterType, ImageType } from '@/types';
@@ -8,9 +7,8 @@ let extractor = null;
 
 const getExtractor = async () => {
   if (extractor === null) {
-    // We specify quantized: false and now also dtype: 'fp32' to ensure the full-precision model
-    // is loaded correctly, which should resolve the `pixel_values` error.
-    extractor = await pipeline('feature-extraction', 'Xenova/clip-vit-large-patch14', { quantized: false, dtype: 'fp32' } as any);
+    // Trying a different model architecture (DINOv2) as requested, to see if it resolves the persistent input issue.
+    extractor = await pipeline('feature-extraction', 'Xenova/dinov2-base', { quantized: false } as any);
   }
   return extractor;
 };
