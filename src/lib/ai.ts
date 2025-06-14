@@ -1,3 +1,4 @@
+
 import { pipeline, RawImage } from '@huggingface/transformers';
 import { kmeans } from 'ml-kmeans';
 import { ClusterType, ImageType } from '@/types';
@@ -7,9 +8,9 @@ let extractor = null;
 
 const getExtractor = async () => {
   if (extractor === null) {
-    // Swapping to a different CLIP model to rule out issues with the previous one.
-    // We still specify quantized: false to ensure we get the full-precision model.
-    extractor = await pipeline('feature-extraction', 'Xenova/clip-vit-large-patch14', { quantized: false } as any);
+    // We specify quantized: false and now also dtype: 'fp32' to ensure the full-precision model
+    // is loaded correctly, which should resolve the `pixel_values` error.
+    extractor = await pipeline('feature-extraction', 'Xenova/clip-vit-large-patch14', { quantized: false, dtype: 'fp32' } as any);
   }
   return extractor;
 };
