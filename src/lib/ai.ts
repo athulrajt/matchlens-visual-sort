@@ -1,30 +1,50 @@
-
 import { pipeline, RawImage, env } from '@huggingface/transformers';
 import { kmeans } from 'ml-kmeans';
 import { ClusterType, ImageType } from '@/types';
 
-// To prevent re-initializing the model on every upload, we'll cache the pipeline.
+// Caches for our AI pipelines to avoid reloading models.
 let featureExtractor: any = null;
+let styleClassifier: any = null;
 
-// Configure transformers.js to fetch models from the Hub and disable local models/caching.
-// This helps prevent issues with stale or corrupted caches.
+// Configure transformers.js to fetch models from the Hub.
 env.allowLocalModels = false;
 env.useBrowserCache = false;
 
-const getExtractor = async () => {
+// We'll define a list of candidate style labels for our classifier.
+const STYLE_LABELS = [
+    'minimalist', 'brutalist', 'skeuomorphic', 'vintage', 'flat design', 
+    'modern', 'abstract', 'photorealistic', 'cartoonish', 'art deco', 'typography'
+];
+
+/**
+ * Gets a cached image-feature-extraction pipeline.
+ * This is used for similarity-based clustering.
+ */
+const getFeatureExtractor = async () => {
     if (featureExtractor === null) {
-        // We've encountered a series of errors (401, 404, config issues) with various models.
-        // This usually means the model isn't set up for easy use with the transformers.js library.
-        // We will now use a model that is specifically maintained for this library by its creator,
-        // Xenova. `clip-vit-base-patch32` is a robust and reliable choice for this task.
         featureExtractor = await pipeline(
             'image-feature-extraction',
             'Xenova/clip-vit-base-patch32'
         );
-        console.log("✅ Feature extractor (Xenova's CLIP) model loaded.");
+        console.log("✅ Feature extractor (for similarity) model loaded.");
     }
     return featureExtractor;
 };
+
+/**
+ * Gets a cached zero-shot-image-classification pipeline.
+ * This is used to classify images into predefined style categories.
+ */
+const getStyleClassifier = async () => {
+    if (styleClassifier === null) {
+        styleClassifier = await pipeline(
+            'zero-shot-image-classification',
+            'Xenova/clip-vit-base-patch32'
+        );
+        console.log("✅ Style classifier (for aesthetics) model loaded.");
+    }
+    return styleClassifier;
+}
 
 /**
  * Extracts a color palette from an image using the k-means algorithm on its pixels.
@@ -35,7 +55,6 @@ const getExtractor = async () => {
 const getPaletteFromImage = (imageUrl: string, colorCount = 5): Promise<string[]> => {
     return new Promise((resolve, reject) => {
         const img = new Image();
-        // img.crossOrigin = 'Anonymous'; // This is not needed for Object URLs and can cause silent errors.
         img.onload = () => {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -76,8 +95,8 @@ const getPaletteFromImage = (imageUrl: string, colorCount = 5): Promise<string[]
 };
 
 /**
- * Takes an array of image files, extracts their features using an AI model,
- * and groups them into clusters based on visual similarity.
+ * Takes an array of image files, classifies them by style, and then groups them.
+ * Images that don't fit a style are clustered by visual similarity.
  * @param files An array of image files.
  * @returns A promise that resolves to an array of ClusterType objects.
  */
@@ -88,23 +107,16 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
         console.warn("Some files were not images and have been filtered out.");
     }
     
-    // Log file details for debugging, as suggested.
-    console.table(imageFiles.map(f => ({
-      name: f.name,
-      type: f.type,
-      size: f.size,
-    })));
-
     if (imageFiles.length === 0) return [];
     
-    // getExtractor now returns a pipeline instance
-    const extractor = await getExtractor();
-    console.log("✅ Feature extractor pipeline ready.");
+    // Initialize both AI pipelines
+    const classifier = await getStyleClassifier();
+    const extractor = await getFeatureExtractor();
+    console.log("✅ AI pipelines ready for processing.");
 
-    // 1. Extract embeddings for all images in parallel, handling errors
-    const embeddingResults = await Promise.all(
+    // 1. Process all images to get style labels and feature embeddings
+    const processingResults = await Promise.all(
         imageFiles.map(async (file, i) => {
-            console.log(`Processing file: ${file.name}, type: ${file.type}, size: ${file.size} bytes`);
             const imageInfo: ImageType = {
                 id: `${file.name}-${i}`,
                 url: URL.createObjectURL(file),
@@ -112,90 +124,107 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
             };
 
             try {
-                // As you correctly pointed out, we must convert the file to a
-                // RawImage object before passing it to the pipeline.
                 const image = await RawImage.read(file);
-                const embeddingTensor = await extractor(image, { pooling: 'mean', normalize: true });
-                
-                console.log(`✅ Embedding extracted for ${file.name}.`);
 
-                if (!embeddingTensor || !embeddingTensor.data || !(embeddingTensor.data instanceof Float32Array) || embeddingTensor.data.length === 0) {
-                     console.error("Invalid embedding tensor received:", embeddingTensor);
-                     throw new Error(`Invalid or empty result from feature extractor for ${file.name}. Expected a Tensor with data.`);
-                }
+                // Classify image against our defined style labels
+                const stylePredictions = await classifier(image, STYLE_LABELS, { top_k: 1 });
+                const primaryStyle = stylePredictions[0];
+
+                // Also get feature embedding for the similarity fallback
+                const embeddingTensor = await extractor(image, { pooling: 'mean', normalize: true });
+                const embedding = Array.from(embeddingTensor.data as Float32Array);
+
+                console.log(`✅ Processed ${file.name}: Style - ${primaryStyle.label} (${primaryStyle.score.toFixed(2)})`);
 
                 return {
-                    embedding: Array.from(embeddingTensor.data as Float32Array),
-                    info: imageInfo
+                    info: imageInfo,
+                    label: primaryStyle.score > 0.35 ? primaryStyle.label : 'miscellaneous', // Confidence threshold
+                    embedding: embedding
                 };
             } catch (err) {
-                console.error(`❌ Failed to process image ${imageInfo.alt}:`, {
-                    error: err,
-                    fileName: file.name,
-                    fileType: file.type,
-                    fileSize: file.size,
-                });
-                // Important: Revoke the object URL if processing fails to prevent memory leaks.
-                URL.revokeObjectURL(imageInfo.url);
+                console.error(`❌ Failed to process image ${imageInfo.alt}:`, err);
+                URL.revokeObjectURL(imageInfo.url); // Prevent memory leak on error
                 return null;
             }
         })
     );
     
-    const validResults = embeddingResults.filter(Boolean) as { embedding: number[], info: ImageType }[];
+    const validResults = processingResults.filter(Boolean) as { info: ImageType, label: string, embedding: number[] }[];
+    if (validResults.length === 0) return [];
 
-    // If not enough images were processed successfully for clustering
-    if (validResults.length < 2) {
-        if (validResults.length === 1) {
-            const { info } = validResults[0];
-            return [{
-                id: `cluster-single-${info.id}`,
-                title: 'Single Image',
-                description: 'Only one image was processed successfully.',
-                images: [info],
-                palette: await getPaletteFromImage(info.url).catch(() => []),
-            }];
+    // 2. Separate images into style groups and a miscellaneous group
+    const styleGroups: Record<string, { info: ImageType, embedding: number[] }[]> = {};
+    const miscellaneousGroup: { info: ImageType, embedding: number[] }[] = [];
+
+    validResults.forEach(result => {
+        if (result.label === 'miscellaneous') {
+            miscellaneousGroup.push(result);
+        } else {
+            if (!styleGroups[result.label]) styleGroups[result.label] = [];
+            styleGroups[result.label].push(result);
         }
-        // If 0 valid results, all URLs have been revoked in catch blocks. No memory leak.
-        return [];
-    }
-
-    const embeddings = validResults.map(r => r.embedding);
-    const validImageInfos = validResults.map(r => r.info);
-
-    // 2. Determine the optimal number of clusters (k) and run k-means
-    const k = Math.min(Math.max(2, Math.ceil(validImageInfos.length / 4)), 10, validImageInfos.length);
-    const result = kmeans(embeddings, k, { initialization: 'kmeans++' });
-    const assignments = result.clusters;
-
-    // 3. Group images into cluster data structures
-    const tempClusters: { [key: number]: ImageType[] } = {};
-    assignments.forEach((clusterIndex, imageIndex) => {
-        if (!tempClusters[clusterIndex]) {
-            tempClusters[clusterIndex] = [];
-        }
-        tempClusters[clusterIndex].push(validImageInfos[imageIndex]);
     });
 
-    // 4. Format clusters and generate palettes in parallel
-    const finalClusters = await Promise.all(
-        Object.values(tempClusters).map(async (images, index) => {
-            // Safety check for empty clusters, although it shouldn't happen with current logic.
-            if (images.length === 0) return null;
-            
-            const palette = await getPaletteFromImage(images[0].url).catch(err => {
-                console.error(`Failed to generate palette for cluster ${index + 1}:`, err);
-                return []; // Return empty palette on error
-            });
+    // 3. Create final clusters from the distinct style groups
+    let finalClusters: (ClusterType | null)[] = await Promise.all(
+        Object.entries(styleGroups).map(async ([style, items]) => {
+            if (items.length === 0) return null;
+
+            const images = items.map(item => item.info);
+            const palette = await getPaletteFromImage(images[0].url).catch(() => []);
+            const title = `Style: ${style.charAt(0).toUpperCase() + style.slice(1)}`;
+
             return {
-                id: `cluster-${index}-${Date.now()}`,
-                title: `Smart Cluster ${index + 1}`,
-                description: `A collection of ${images.length} visually similar images.`,
-                images: images,
-                palette: palette
+                id: `cluster-style-${style}-${Date.now()}`,
+                title: title,
+                description: `A collection of ${images.length} images with a ${style} aesthetic.`,
+                images,
+                palette,
             };
         })
     );
+
+    // 4. Handle miscellaneous images using k-means similarity clustering
+    if (miscellaneousGroup.length > 0) {
+        if (miscellaneousGroup.length < 2) {
+            const { info } = miscellaneousGroup[0];
+            const palette = await getPaletteFromImage(info.url).catch(() => []);
+            finalClusters.push({
+                id: `cluster-single-${info.id}`,
+                title: 'Miscellaneous Image',
+                description: 'This image did not fit a specific style category.',
+                images: [info],
+                palette,
+            });
+        } else {
+            const miscEmbeddings = miscellaneousGroup.map(r => r.embedding);
+            const miscImageInfos = miscellaneousGroup.map(r => r.info);
+            
+            const k = Math.min(Math.max(2, Math.ceil(miscImageInfos.length / 5)), 8, miscImageInfos.length);
+            const kmeansResult = kmeans(miscEmbeddings, k, { initialization: 'kmeans++' });
+            
+            const tempClusters: { [key: number]: ImageType[] } = {};
+            kmeansResult.clusters.forEach((clusterIndex, imageIndex) => {
+                if (!tempClusters[clusterIndex]) tempClusters[clusterIndex] = [];
+                tempClusters[clusterIndex].push(miscImageInfos[imageIndex]);
+            });
+
+            const miscClusters = await Promise.all(
+                Object.values(tempClusters).map(async (images, index) => {
+                    if (images.length === 0) return null;
+                    const palette = await getPaletteFromImage(images[0].url).catch(() => []);
+                    return {
+                        id: `cluster-misc-${index}-${Date.now()}`,
+                        title: `Miscellaneous Cluster ${index + 1}`,
+                        description: `A group of ${images.length} visually similar images.`,
+                        images,
+                        palette,
+                    };
+                })
+            );
+            finalClusters.push(...miscClusters);
+        }
+    }
     
     return finalClusters.filter(Boolean) as ClusterType[];
 };
