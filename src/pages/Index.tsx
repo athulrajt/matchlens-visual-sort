@@ -135,7 +135,6 @@ const IndexPage = () => {
   const handleUploadClick = () => {
     if (!user) {
       toast.info("Please sign in to create a collection.");
-      navigate('/auth');
       return;
     }
     fileInputRef.current?.click();
@@ -228,7 +227,6 @@ const IndexPage = () => {
     if (!files || files.length === 0) return;
     if (!user) {
         toast.error("You must be logged in.");
-        navigate('/auth');
         return;
     }
 
