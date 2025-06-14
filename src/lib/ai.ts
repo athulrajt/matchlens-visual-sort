@@ -1,27 +1,18 @@
-import { AutoProcessor, RawImage, CLIPVisionModel } from '@huggingface/transformers';
+import { pipeline, RawImage } from '@huggingface/transformers';
 import { kmeans } from 'ml-kmeans';
 import { ClusterType, ImageType } from '@/types';
 
-// To prevent re-initializing the model on every upload, we'll cache them.
-let model: any = null;
-let processor: any = null;
+// To prevent re-initializing the model on every upload, we'll cache the pipeline.
+let featureExtractor: any = null;
 
 const getExtractor = async () => {
-    if (model === null || processor === null) {
-        // We now use AutoProcessor and CLIPVisionModel to load the vision encoder specifically,
-        // which resolves "Missing input_ids" errors.
-        processor = await AutoProcessor.from_pretrained('Xenova/clip-vit-base-patch32', {});
-        model = await CLIPVisionModel.from_pretrained('Xenova/clip-vit-base-patch32', {});
+    if (featureExtractor === null) {
+        // Use the pipeline for feature extraction, which is simpler and more robust.
+        // This will download the model on first use.
+        featureExtractor = await pipeline('feature-extraction', 'Xenova/clip-vit-base-patch32');
+        console.log("✅ Feature extractor (pipeline) loaded.");
     }
-
-    // Return a function that performs the extraction, including normalization.
-    return async (image: RawImage) => {
-        const inputs = await processor(image);
-        const outputs = await model(inputs);
-        // The output for CLIP-like models is in `pooler_output`.
-        // We normalize the embeddings, which is crucial for similarity calculations.
-        return outputs.pooler_output.normalize(2, -1);
-    };
+    return featureExtractor;
 };
 
 /**
@@ -95,9 +86,9 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
 
     if (imageFiles.length === 0) return [];
     
-    // getExtractor now returns our custom processing function
-    const featureExtractor = await getExtractor();
-    console.log("✅ Feature extractor components loaded.");
+    // getExtractor now returns a pipeline instance
+    const extractor = await getExtractor();
+    console.log("✅ Feature extractor pipeline ready.");
 
     // 1. Extract embeddings for all images in parallel, handling errors
     const embeddingResults = await Promise.all(
@@ -112,8 +103,8 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
             try {
                 const image = await RawImage.fromBlob(file);
                 
-                // Use the new extractor function which handles preprocessing
-                const embeddingTensor = await featureExtractor(image);
+                // Use the pipeline extractor with pooling and normalization options.
+                const embeddingTensor = await extractor(image, { pooling: 'mean', normalize: true });
                 
                 console.log(`✅ Embedding extracted for ${file.name}.`);
 
