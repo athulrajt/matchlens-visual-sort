@@ -1,4 +1,3 @@
-
 import { pipeline, env } from '@huggingface/transformers';
 
 // Caches for our AI pipelines to avoid reloading models.
@@ -32,7 +31,7 @@ export const getCaptioner = async () => {
     if (captioner === null) {
         captioner = await pipeline(
             'image-to-text',
-            'Salesforce/blip-image-captioning-base'
+            'Xenova/vit-gpt2-image-captioning'
         );
         console.log("✅ Captioner (for tagging) model loaded.");
     }
