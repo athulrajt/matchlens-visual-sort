@@ -1,4 +1,4 @@
-import { pipeline } from '@huggingface/transformers';
+import { pipeline, RawImage } from '@huggingface/transformers';
 import { kmeans } from 'ml-kmeans';
 import { ClusterType, ImageType } from '@/types';
 
@@ -101,11 +101,10 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
             };
 
             try {
-                // Per your feedback on the "Missing... pixel_values" error,
-                // we now pass the object URL directly to the pipeline. This is a more
-                // robust method as the pipeline handles fetching and preprocessing internally,
-                // avoiding potential issues with RawImage object creation.
-                const embeddingTensor = await extractor(imageInfo.url, { pooling: 'mean', normalize: true });
+                // As you correctly pointed out, we must convert the file to a
+                // RawImage object before passing it to the pipeline.
+                const image = await RawImage.read(file);
+                const embeddingTensor = await extractor(image, { pooling: 'mean', normalize: true });
                 
                 console.log(`✅ Embedding extracted for ${file.name}.`);
 
