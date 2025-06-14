@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
@@ -10,6 +11,7 @@ import { Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from "sonner";
 import { clusterImages } from '@/lib/ai';
+import ProcessingView, { ProcessingFile } from '@/components/ProcessingView';
 
 const IndexPage = () => {
   const [clusters, setClusters] = useState<ClusterType[]>([]);
@@ -18,6 +20,9 @@ const IndexPage = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const [processingFiles, setProcessingFiles] = useState<ProcessingFile[]>([]);
+  const [isClustering, setIsClustering] = useState(false);
+
 
   useEffect(() => {
     const handleScroll = () => {
@@ -43,13 +48,34 @@ const IndexPage = () => {
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
-      setIsLoading(true);
+      const newFiles = Array.from(files).map((file, i) => ({
+        id: `${file.name}-${i}`,
+        url: URL.createObjectURL(file),
+        name: file.name,
+        progress: 0,
+      }));
+
+      setProcessingFiles(newFiles);
       setClusters([]);
+      setIsLoading(true);
+      setIsClustering(false);
+
       toast.info("Warming up the AI... This may take a moment on first use.", {
         duration: 8000,
       });
       try {
-        const newClusters = await clusterImages(Array.from(files));
+        const fileObjects = Array.from(files);
+        
+        const onProgress = ({ imageId, progress }: { imageId: string, progress: number }) => {
+            setProcessingFiles(prevFiles => 
+                prevFiles.map(f => f.id === imageId ? { ...f, progress } : f)
+            );
+        };
+        
+        const beforeClustering = () => setIsClustering(true);
+
+        const newClusters = await clusterImages(fileObjects, onProgress, beforeClustering);
+        
         setClusters(newClusters);
         if (newClusters.length > 0) {
           toast.success(`Successfully created ${newClusters.length} smart cluster(s)!`);
@@ -61,6 +87,10 @@ const IndexPage = () => {
         toast.error("Oops! Something went wrong while clustering images.");
       } finally {
         setIsLoading(false);
+        setIsClustering(false);
+        // Clean up object URLs for processed files
+        newFiles.forEach(f => URL.revokeObjectURL(f.url));
+        setProcessingFiles([]);
       }
     }
     // Reset file input to allow re-uploading the same files
@@ -102,7 +132,9 @@ const IndexPage = () => {
         onFilterButtonClick={() => setIsFilterSheetOpen(true)}
       />
       <main className="container mx-auto flex-grow py-8 px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center">
-        {isInitialView ? (
+        {isLoading ? (
+          <ProcessingView files={processingFiles} isClustering={isClustering} />
+        ) : isInitialView ? (
           <div className="flex-grow flex flex-col items-center justify-center text-center">
             <h1 className="text-[54px] font-bold tracking-tight mb-2 animate-fade-in" style={{ animationDelay: '0.2s' }}>
               Drop. <span className="bg-gradient-to-r from-orange to-red bg-clip-text text-transparent">Sort.</span> <span className="bg-gradient-to-r from-primary to-violet bg-clip-text text-transparent">Discover.</span>
@@ -114,14 +146,7 @@ const IndexPage = () => {
           </div>
         ) : (
           <div className="flex-1 w-full">
-            {isLoading ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 h-96">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
-                <p className="text-lg text-muted-foreground">AI is thinking... Clustering images...</p>
-              </div>
-            ) : (
-              <ClusterGrid clusters={clusters} onViewCluster={handleViewCluster} />
-            )}
+            <ClusterGrid clusters={clusters} onViewCluster={handleViewCluster} />
             {clusters.length > 0 && !isLoading && (
                <div className="mt-8 text-center">
                 <Button variant="outline" onClick={handleClearClusters} className="text-destructive hover:text-destructive/80 hover:border-destructive/50">

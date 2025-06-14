@@ -45,9 +45,15 @@ const generateClusterMetadata = async (images: ProcessedImage[], title: string):
  * Takes an array of image files, generates embeddings and tags, groups them by top tag,
  * and then runs k-means within larger groups to create final clusters.
  * @param files An array of image files.
+ * @param onProgress A callback to report progress for each image.
+ * @param beforeClustering A callback executed before the final clustering step.
  * @returns A promise that resolves to an array of ClusterType objects.
  */
-export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
+export const clusterImages = async (
+    files: File[],
+    onProgress: (args: { imageId: string, progress: number }) => void,
+    beforeClustering: () => void
+): Promise<ClusterType[]> => {
     const imageFiles = files.filter(file => file.type.startsWith('image/'));
     if (imageFiles.length !== files.length) {
         console.warn("Some files were not images and have been filtered out.");
@@ -58,7 +64,7 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
     const classifierPipeline = await getClassifier();
     console.log("✅ AI pipelines ready for processing.");
 
-    // 1. Create ImageType objects and extract features and tags for all images
+    // 1. Create ImageType objects
     const imageInfos: (ImageType & { file: File })[] = imageFiles.map((file, i) => ({
         id: `${file.name}-${i}`,
         url: URL.createObjectURL(file),
@@ -66,23 +72,33 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
         file: file,
     }));
 
-    const processedImages = await Promise.all(
-        imageInfos.map(async (info) => {
-            try {
-                const image = await RawImage.read(info.file);
-                const featureResult = await featureExtractorPipeline(image, { pooling: 'mean', normalize: true });
-                const embedding = Array.from(featureResult.data as Float32Array);
-                const tags = await getCLIPTags(classifierPipeline, image);
-                return { ...info, embedding, tags };
-            } catch (err) {
-                console.error(`❌ Failed to process ${info.alt}:`, err);
-                URL.revokeObjectURL(info.url);
-                return null;
-            }
-        })
-    );
+    // Process images sequentially to provide progress updates
+    const processedImages: ProcessedImage[] = [];
+    for (const info of imageInfos) {
+        try {
+            onProgress({ imageId: info.id, progress: 10 });
+            const image = await RawImage.read(info.file);
+
+            onProgress({ imageId: info.id, progress: 30 });
+            const featureResult = await featureExtractorPipeline(image, { pooling: 'mean', normalize: true });
+            const embedding = Array.from(featureResult.data as Float32Array);
+            
+            onProgress({ imageId: info.id, progress: 70 });
+            const tags = await getCLIPTags(classifierPipeline, image);
+
+            processedImages.push({ ...info, embedding, tags });
+            onProgress({ imageId: info.id, progress: 100 });
+        } catch (err) {
+            console.error(`❌ Failed to process ${info.alt}:`, err);
+            // Mark as error. The URL will be revoked by the caller.
+            onProgress({ imageId: info.id, progress: -1 });
+        }
+    }
     
-    const validImages = processedImages.filter(img => img !== null) as ProcessedImage[];
+    // Signal that per-image processing is done and clustering is starting
+    beforeClustering();
+    
+    const validImages = processedImages;
     if (validImages.length < 1) return [];
 
     // 2. Group images by their top tag
