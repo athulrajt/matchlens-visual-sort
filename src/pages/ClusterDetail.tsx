@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ClusterType, ImageType } from '@/types';
@@ -39,7 +38,7 @@ const ClusterDetailPage: React.FC = () => {
         <Header isScrolled={true} />
         <main className="container mx-auto flex-grow py-8 px-4 sm:px-6 lg:px-8">
             <div className="mb-8">
-                <Button variant="ghost" onClick={() => navigate(-1)} className="mb-4 text-muted-foreground hover:text-foreground">
+                <Button variant="ghost" onClick={() => navigate(-1)} className="mb-4 text-muted-foreground hover:text-foreground hover:bg-transparent">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to Clusters
                 </Button>
@@ -48,9 +47,8 @@ const ClusterDetailPage: React.FC = () => {
                         <h1 className="text-3xl font-bold text-foreground">{cluster.title}</h1>
                         <p className="text-muted-foreground mt-1">{cluster.description || `${cluster.images.length} images in this cluster.`}</p>
                     </div>
-                    <Button onClick={handleExport}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Export Cluster
+                    <Button onClick={handleExport} size="icon">
+                        <Download className="h-4 w-4" />
                     </Button>
                 </div>
             </div>
