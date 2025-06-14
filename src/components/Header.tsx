@@ -1,8 +1,10 @@
-
 import React from 'react';
 import { Upload, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthProvider';
+import { UserNav } from './UserNav';
+import { Link } from 'react-router-dom';
 
 interface HeaderProps {
   isScrolled?: boolean;
@@ -19,6 +21,8 @@ const Header: React.FC<HeaderProps> = ({
   showFilterButton,
   onFilterButtonClick
 }) => {
+  const { user } = useAuth();
+
   return (
     <header className={cn(
       "py-6 px-4 sm:px-6 lg:px-8 sticky top-0 z-40 animate-fade-in transition-all duration-300",
@@ -32,23 +36,29 @@ const Header: React.FC<HeaderProps> = ({
           </h1>
         </div>
         <div className="flex items-center space-x-2 sm:space-x-4">
-          {showFilterButton && onFilterButtonClick && (
+          {showFilterButton && onFilterButtonClick && user && (
             <Button variant="outline" onClick={onFilterButtonClick} className="hidden sm:inline-flex">
               <SlidersHorizontal className="mr-2 h-4 w-4" />
               Smart Filters
             </Button>
           )}
-          {showTopUploadButton && onTopUploadClick && (
+          {showTopUploadButton && onTopUploadClick && user && (
             <Button variant="default" onClick={onTopUploadClick} className="bg-gradient-to-r from-orange to-primary text-primary-foreground shadow-lg animate-border-pulse border-2 border-primary/50">
               <Upload className="mr-0 sm:mr-2 h-4 w-4" /> {/* Hide text on very small screens */}
               <span className="hidden sm:inline">Upload More</span>
             </Button>
           )}
-          <Button variant="ghost">Sign Up</Button>
+          {user ? (
+            <UserNav />
+          ) : (
+            <Button asChild variant="ghost">
+              <Link to="/auth">Sign In</Link>
+            </Button>
+          )}
         </div>
       </div>
       {/* Mobile filter button */}
-      {showFilterButton && onFilterButtonClick && (
+      {showFilterButton && onFilterButtonClick && user && (
         <div className="container mx-auto sm:hidden mt-4">
             <Button variant="outline" onClick={onFilterButtonClick} className="w-full">
               <SlidersHorizontal className="mr-2 h-4 w-4" />
