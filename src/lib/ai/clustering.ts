@@ -1,12 +1,18 @@
 
 import { RawImage } from '@huggingface/transformers';
 import { ClusterType, ImageType } from '@/types';
-import { getCaptioner, getFeatureExtractor } from './pipelines';
-import { getPaletteFromImage, getTagsForImage } from './image-processing';
+import { getClassifier, getFeatureExtractor } from './pipelines';
+import { getPaletteFromImage, getCLIPTags } from './image-processing';
 import { kmeans } from 'ml-kmeans';
 
+type ProcessedImage = ImageType & { 
+    file: File; 
+    embedding: number[]; 
+    tags: string[];
+};
+
 /**
- * Takes an array of image files, generates embeddings, clusters them using k-means,
+ * Takes an array of image files, generates embeddings and tags, clusters them using k-means,
  * and then generates descriptive metadata for each cluster.
  * @param files An array of image files.
  * @returns A promise that resolves to an array of ClusterType objects.
@@ -23,10 +29,10 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
     
     // Initialize both AI pipelines
     const featureExtractorPipeline = await getFeatureExtractor();
-    const captionerPipeline = await getCaptioner();
+    const classifierPipeline = await getClassifier();
     console.log("✅ AI pipelines ready for processing.");
 
-    // 1. Create ImageType objects to hold file info
+    // 1. Create ImageType objects to hold initial file info
     const imageInfos: (ImageType & { file: File })[] = imageFiles.map((file, i) => ({
         id: `${file.name}-${i}`,
         url: URL.createObjectURL(file),
@@ -34,24 +40,29 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
         file: file,
     }));
 
-    // 2. Extract features (embeddings) for all images
-    console.log('Extracting features from images...');
-    const features = await Promise.all(
+    // 2. Extract features (embeddings) and tags for all images
+    console.log('Extracting features and tags from images...');
+    const processedImages = await Promise.all(
         imageInfos.map(async (info) => {
             try {
                 const image = await RawImage.read(info.file);
-                const result = await featureExtractorPipeline(image, { pooling: 'mean', normalize: true });
-                return Array.from(result.data as Float32Array);
+                
+                const featureResult = await featureExtractorPipeline(image, { pooling: 'mean', normalize: true });
+                const embedding = Array.from(featureResult.data as Float32Array);
+
+                const tags = await getCLIPTags(classifierPipeline, image);
+
+                return { ...info, embedding, tags };
             } catch (err) {
-                console.error(`❌ Failed to extract features from ${info.alt}:`, err);
+                console.error(`❌ Failed to process ${info.alt}:`, err);
                 URL.revokeObjectURL(info.url); // Prevent memory leak on error
                 return null;
             }
         })
     );
     
-    const validFeatures = features.filter(f => f !== null) as number[][];
-    const validImageInfos = imageInfos.filter((_, i) => features[i] !== null);
+    const validImages = processedImages.filter(img => img !== null) as ProcessedImage[];
+    const validFeatures = validImages.map(img => img.embedding);
 
     if (validFeatures.length < 1) return [];
 
@@ -63,10 +74,10 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
     
     const kmeansResult = kmeans(validFeatures, k, {});
     
-    const clusteredImageGroups: { images: (ImageType & { file: File })[] }[] = Array.from({ length: k }, () => ({ images: [] }));
+    const clusteredImageGroups: { images: ProcessedImage[] }[] = Array.from({ length: k }, () => ({ images: [] }));
     kmeansResult.clusters.forEach((clusterIndex, i) => {
         if (clusteredImageGroups[clusterIndex]) {
-            clusteredImageGroups[clusterIndex].images.push(validImageInfos[i]);
+            clusteredImageGroups[clusterIndex].images.push(validImages[i]);
         }
     });
 
@@ -78,15 +89,8 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
             .map(async (clusterGroup, i) => {
                 const { images } = clusterGroup;
                 
-                // For tags and title, caption a few representative images from the cluster
-                const representativeImages = images.slice(0, 3);
-                const allTags: string[] = (await Promise.all(
-                    representativeImages.map(async (imgInfo) => {
-                        const rawImg = await RawImage.read(imgInfo.file);
-                        return getTagsForImage(captionerPipeline, rawImg);
-                    })
-                )).flat();
-
+                // Aggregate tags from all images in the cluster
+                const allTags = images.flatMap(image => image.tags);
                 const tagFrequencies = allTags.reduce<Record<string, number>>((acc, tag) => {
                     acc[tag] = (acc[tag] || 0) + 1;
                     return acc;
@@ -94,7 +98,7 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
 
                 const topTags = Object.entries(tagFrequencies)
                     .sort(([, countA], [, countB]) => countB - countA)
-                    .slice(0, 5)
+                    .slice(0, 5) // Use top 5 tags for cluster summary
                     .map(([tag]) => tag);
 
                 const clusterTitle = topTags.length > 0
@@ -107,8 +111,8 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
                 
                 const palette = await getPaletteFromImage(images[0].url).catch(() => []);
 
-                // Remove the 'file' property before returning to match the ImageType interface
-                const finalImages: ImageType[] = images.map(({ file, ...rest }) => rest);
+                // Remove processing-specific properties to match the ImageType interface
+                const finalImages: ImageType[] = images.map(({ file, embedding, tags, ...rest }) => rest);
 
                 return {
                     id: `cluster-sim-${i}-${Date.now()}`,

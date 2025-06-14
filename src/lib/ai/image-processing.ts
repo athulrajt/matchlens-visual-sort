@@ -1,6 +1,6 @@
-
 import { RawImage } from '@huggingface/transformers';
 import { kmeans } from 'ml-kmeans';
+import { TAG_PROMPTS } from './prompts';
 
 /**
  * Extracts a color palette from an image using the k-means algorithm on its pixels.
@@ -51,26 +51,29 @@ export const getPaletteFromImage = (imageUrl: string, colorCount = 5): Promise<s
 };
 
 /**
- * Generates a list of tags for an image by creating a caption and processing it.
- * @param captioner The image-to-text pipeline instance.
+ * Generates a list of relevant tags for an image using a CLIP model
+ * for zero-shot classification against a curated list of prompts.
+ * @param classifier The zero-shot-image-classification pipeline instance.
  * @param image The RawImage to process.
  * @returns A promise that resolves to an array of string tags.
  */
-export const getTagsForImage = async (captioner: any, image: RawImage): Promise<string[]> => {
-    try {
-        const result = await captioner(image, { max_new_tokens: 20 });
-        const text = result[0]?.generated_text.toLowerCase() || '';
-        
-        // Clean up common caption prefixes and split into tags
-        const tags = text
-            .replace(/^a (photography|photo|picture) of /i, '')
-            .split(/[,.\-–\s]/)
-            .map(tag => tag.trim())
-            .filter(t => t.length > 2 && t.length < 20); // Filter for meaningful tags
+export const getCLIPTags = async (classifier: any, image: RawImage): Promise<string[]> => {
+    const tags: string[] = [];
 
-        return Array.from(new Set(tags)); // Use Array.from for type safety
-    } catch (e) {
-        console.error("Failed to generate tags for an image:", e);
-        return [];
+    for (const prompts of Object.values(TAG_PROMPTS)) {
+        try {
+            // Use top_k: 1 for efficiency as we only need the best match per category.
+            const result = await classifier(image, prompts, { top_k: 1 });
+            const topMatch = result[0];
+
+            // Add the tag only if its confidence score is above a threshold.
+            if (topMatch && topMatch.score > 0.5) {
+                tags.push(topMatch.label);
+            }
+        } catch (e) {
+            console.error("Failed to get CLIP tags for a category:", e);
+        }
     }
+
+    return [...new Set(tags)]; // Return unique tags
 };
