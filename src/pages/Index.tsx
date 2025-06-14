@@ -1,101 +1,38 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '@/components/Header';
-import UploadZone from '@/components/UploadZone';
-import ClusterCard from '@/components/ClusterCard';
 import FilterSheet from '@/components/FilterSheet';
-import { ClusterType, ImageType } from '@/types';
-import { Button } from '@/components/ui/button';
-import { Trash2, Frown } from 'lucide-react';
+import { ClusterType } from '@/types';
 import { cn } from '@/lib/utils';
-import { toast } from "sonner";
-import { clusterImages } from '@/lib/ai';
-import ProcessingView, { ProcessingFile } from '@/components/ProcessingView';
+import ProcessingView from '@/components/ProcessingView';
 import { useAuth } from '@/contexts/AuthProvider';
-import { supabase } from '@/integrations/supabase/client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { v4 as uuidv4 } from 'uuid';
+
+import { useClusters } from '@/hooks/useClusters';
+import { useImageUploader } from '@/hooks/useImageUploader';
+import InitialView from '@/components/InitialView';
+import Dashboard from '@/components/Dashboard';
 
 const IndexPage = () => {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const { clusters, isLoadingClusters, createClusters, deleteCluster, clearClusters, clearClustersMutation } = useClusters();
   
-  const { data: supabaseClusters = [], isLoading: isLoadingClusters, refetch: refetchClusters } = useQuery<ClusterType[]>({
-    queryKey: ['clusters', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase
-        .from('clusters')
-        .select(`
-          id,
-          title,
-          description,
-          tags,
-          palette,
-          images (
-            id,
-            image_path,
-            alt
-          )
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+  const [activeFilters, setActiveFilters] = useState<{ tags: string[] }>({ tags: [] });
 
-      if (error) {
-        toast.error('Failed to fetch your collections.');
-        console.error(error);
-        return [];
-      }
-
-      return data.map(c => ({
-        ...c,
-        images: c.images.map(img => {
-            const publicUrlResult = supabase.storage.from('cluster-images').getPublicUrl(img.image_path);
-            return {
-                id: img.id,
-                alt: img.alt,
-                url: publicUrlResult.data.publicUrl,
-            };
-        })
-      }));
-    },
-    enabled: !!user,
+  const { isProcessing, isClustering, processingFiles, fileInputRef, handleUploadClick, handleFileChange } = useImageUploader({
+    createClusters,
+    onUploadStart: () => setActiveFilters({ tags: [] }),
+    onUploadEnd: () => {},
   });
 
-  const [clusters, setClusters] = useState<ClusterType[]>([]);
-  const [activeFilters, setActiveFilters] = useState<{ tags: string[] }>({ tags: [] });
-  const [isProcessing, setIsProcessing] = useState(false);
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [processingFiles, setProcessingFiles] = useState<ProcessingFile[]>([]);
-  const [isClustering, setIsClustering] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      setClusters(supabaseClusters);
-    } else {
-      try {
-        const localClustersRaw = localStorage.getItem('guestClusters');
-        if (localClustersRaw) {
-          const localClusters = JSON.parse(localClustersRaw);
-          setClusters(localClusters);
-        } else {
-          setClusters([]);
-        }
-      } catch (error) {
-        console.error("Error loading guest clusters from local storage", error);
-        setClusters([]);
-      }
-    }
-  }, [user, supabaseClusters]);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10);
-    };
+    const handleScroll = () => setIsScrolled(window.scrollY > 10);
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -103,323 +40,26 @@ const IndexPage = () => {
   useEffect(() => {
     if (location.state?.clearFilters) {
       setActiveFilters({ tags: [] });
-      // Clear state after using it to avoid re-triggering
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [location.state, navigate, location.pathname]);
-  
-  // This effect cleans up temporary blob URLs used in the processing view.
-  useEffect(() => {
-    return () => {
-      processingFiles.forEach(file => URL.revokeObjectURL(file.url));
-    };
-  }, [processingFiles]);
-
-  useEffect(() => {
-    try {
-      if (clusters.length > 0) {
-        sessionStorage.setItem('clusters', JSON.stringify(clusters));
-      } else {
-        sessionStorage.removeItem('clusters');
-      }
-    } catch (error) {
-      console.error("Error writing clusters to session storage", error);
-    }
-  }, [clusters]);
 
   const allTags = useMemo(() => {
     const tags = new Set<string>();
-    clusters.forEach(cluster => {
-      cluster.tags?.forEach(tag => tags.add(tag));
-    });
+    clusters.forEach(cluster => cluster.tags?.forEach(tag => tags.add(tag)));
     return Array.from(tags);
   }, [clusters]);
 
   const filteredClusters = useMemo(() => {
-    if (activeFilters.tags.length === 0) {
-      return clusters;
-    }
+    if (activeFilters.tags.length === 0) return clusters;
     const lowerCaseFilterTags = activeFilters.tags.map(t => t.toLowerCase());
-
-    return clusters.filter(cluster => {
-      if (!cluster.tags || cluster.tags.length === 0) return false;
-      return cluster.tags.some(clusterTag => lowerCaseFilterTags.includes(clusterTag.toLowerCase()));
-    });
+    return clusters.filter(cluster => 
+      cluster.tags?.some(clusterTag => lowerCaseFilterTags.includes(clusterTag.toLowerCase()))
+    );
   }, [clusters, activeFilters]);
-
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const uploadMutation = useMutation({
-    mutationFn: async ({ files, nameToFileMap }: { files: File[], nameToFileMap: Map<string, File> }) => {
-      if (!user) throw new Error("You must be logged in to upload images.");
-
-      const { count, error: countError } = await supabase
-        .from('clusters')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-      
-      if (countError) throw countError;
-      if (count !== null && count >= 15) {
-        throw new Error("You've reached the limit of 15 collections. Please delete some to continue.");
-      }
-
-      const onProgress = ({ imageId, progress }: { imageId: string, progress: number }) => {
-        setProcessingFiles(prevFiles => prevFiles.map(f => f.id === imageId ? { ...f, progress } : f));
-      };
-      const beforeClustering = () => setIsClustering(true);
-
-      const newClustersFromAI = await clusterImages(files, onProgress, beforeClustering);
-
-      if (newClustersFromAI.length === 0) {
-        throw new Error("The AI could not create any clusters from your images.");
-      }
-
-      toast.info(`Saving ${newClustersFromAI.length} new collection(s) to your account...`);
-
-      for (const cluster of newClustersFromAI) {
-        const { data: newCluster, error: clusterError } = await supabase.from('clusters').insert({
-          user_id: user.id,
-          title: cluster.title,
-          description: cluster.description,
-          tags: cluster.tags,
-          palette: cluster.palette,
-        }).select().single();
-
-        if (clusterError) throw clusterError;
-
-        for (const image of cluster.images) {
-          const file = nameToFileMap.get(image.alt);
-          if (!file) {
-            console.warn(`File not found for image: ${image.alt}`);
-            continue;
-          }
-
-          const imagePath = `${user.id}/${newCluster.id}/${uuidv4()}-${file.name}`;
-          const { error: uploadError } = await supabase.storage.from('cluster-images').upload(imagePath, file);
-
-          if (uploadError) {
-            console.error('Failed to upload image', uploadError);
-            toast.error(`Failed to upload ${file.name}`, { description: uploadError.message });
-            continue;
-          }
-
-          await supabase.from('images').insert({
-            cluster_id: newCluster.id,
-            user_id: user.id,
-            image_path: imagePath,
-            alt: file.name,
-          });
-        }
-      }
-      return newClustersFromAI;
-    },
-    onSuccess: (newClusters) => {
-      toast.success(`Successfully created and saved ${newClusters.length} new smart collection(s)!`);
-      queryClient.invalidateQueries({ queryKey: ['clusters', user?.id] });
-    },
-    onError: (error: Error) => {
-      toast.error("An error occurred", { description: error.message });
-    },
-    onSettled: () => {
-      setIsProcessing(false);
-      setIsClustering(false);
-      setProcessingFiles([]);
-    }
-  });
-
-  const handleGuestUpload = async (files: File[]) => {
-    setIsProcessing(true);
-    setIsClustering(false);
-    try {
-        const onProgress = ({ imageId, progress }: { imageId: string, progress: number }) => {
-            setProcessingFiles(prevFiles => prevFiles.map(f => f.id === imageId ? { ...f, progress } : f));
-        };
-        const beforeClustering = () => setIsClustering(true);
-        
-        const newClustersFromAI = await clusterImages(files, onProgress, beforeClustering);
-
-        if (newClustersFromAI.length === 0) {
-            throw new Error("The AI could not create any clusters from your images.");
-        }
-
-        const tempClustersForState = newClustersFromAI.map(cluster => ({
-            ...cluster,
-            id: uuidv4(),
-            images: cluster.images.map(image => ({
-                ...image,
-                id: uuidv4(),
-            }))
-        }));
-
-        const currentLocalClustersRaw = localStorage.getItem('guestClusters');
-        const currentLocalClusters = currentLocalClustersRaw ? JSON.parse(currentLocalClustersRaw) : [];
-        
-        const updatedLocalClusters = [...tempClustersForState, ...currentLocalClusters];
-        localStorage.setItem('guestClusters', JSON.stringify(updatedLocalClusters));
-
-        setClusters(updatedLocalClusters);
-        
-        toast.success(`Successfully created ${newClustersFromAI.length} new collection(s)!`, {
-            description: "Collections are saved in your browser, but images are temporary. Sign up to save them permanently."
-        });
-    } catch (error: any) {
-        toast.error("An error occurred", { description: error.message });
-    } finally {
-        setIsProcessing(false);
-        setIsClustering(false);
-        setProcessingFiles([]);
-    }
-  };
-
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-
-    const allFiles = Array.from(files);
-    const maxSizeInBytes = 500 * 1024; // 500kb
-
-    const validFiles = allFiles.filter(file => {
-      if (file.size > maxSizeInBytes) {
-        toast.warning(`Skipping "${file.name}"`, { description: `File is larger than 500kb.` });
-        return false;
-      }
-      return true;
-    });
-
-    if (validFiles.length === 0) {
-        if(allFiles.length > 0) toast.error("All selected files were over the 500kb size limit.");
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        return;
-    }
-    
-    const nameToFileMap = new Map<string, File>();
-    validFiles.forEach(file => {
-      nameToFileMap.set(file.name, file);
-    });
-
-    const newFilesForUI = validFiles.map((file, i) => ({
-      id: `${file.name}-${i}`,
-      url: URL.createObjectURL(file),
-      name: file.name,
-      progress: 0,
-    }));
-
-    setProcessingFiles(newFilesForUI);
-    setActiveFilters({ tags: [] });
-    setIsProcessing(true);
-    setIsClustering(false);
-
-    toast.info("Warming up the AI... This may take a moment.");
-    
-    if (user) {
-      uploadMutation.mutate({ files: validFiles, nameToFileMap });
-    } else {
-      handleGuestUpload(validFiles);
-    }
-
-    if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-    }
-  };
 
   const handleViewCluster = (cluster: ClusterType) => {
     navigate(`/cluster/${cluster.id}`, { state: { cluster } });
-  };
-
-  const deleteClusterMutation = useMutation({
-    mutationFn: async (clusterId: string) => {
-      if (!user) throw new Error("User not found");
-
-      const clusterToDelete = clusters.find(c => c.id === clusterId);
-      if (!clusterToDelete) throw new Error("Cluster not found");
-      
-      const imagePaths = clusterToDelete.images.map(img => `${user.id}/${clusterToDelete.id}/${img.alt}`);
-      if(imagePaths.length > 0) {
-          const { error: storageError } = await supabase.storage.from('cluster-images').remove(imagePaths);
-          if(storageError) console.error("Could not delete images from storage", storageError);
-      }
-
-      const { error } = await supabase.from('clusters').delete().eq('id', clusterId);
-      if (error) throw error;
-      
-      return clusterToDelete.title;
-    },
-    onSuccess: (deletedTitle) => {
-      toast.success(`Collection "${deletedTitle}" has been deleted.`);
-      queryClient.invalidateQueries({ queryKey: ['clusters', user?.id] });
-    },
-    onError: (error: Error) => {
-      toast.error("Failed to delete collection", { description: error.message });
-    }
-  });
-
-  const handleDeleteCluster = (clusterId: string) => {
-    if (user) {
-      deleteClusterMutation.mutate(clusterId);
-      return;
-    }
-    
-    // Guest user logic
-    const currentLocalClustersRaw = localStorage.getItem('guestClusters');
-    if (currentLocalClustersRaw) {
-        const currentLocalClusters: ClusterType[] = JSON.parse(currentLocalClustersRaw);
-        const updatedLocalClusters = currentLocalClusters.filter(c => c.id !== clusterId);
-        localStorage.setItem('guestClusters', JSON.stringify(updatedLocalClusters));
-    }
-
-    const clusterToDelete = clusters.find(c => c.id === clusterId);
-    if (clusterToDelete) {
-        clusterToDelete.images.forEach(image => URL.revokeObjectURL(image.url));
-    }
-    setClusters(current => current.filter(c => c.id !== clusterId));
-    toast.success(`Collection has been deleted.`);
-  };
-
-  const clearClustersMutation = useMutation({
-    mutationFn: async () => {
-      if (!user) throw new Error("User not found");
-      
-      // We need to delete images from storage first
-      for (const cluster of clusters) {
-        const imagePaths = cluster.images.map(img => `${user.id}/${cluster.id}/${img.alt}`);
-        if(imagePaths.length > 0) {
-            const { error: storageError } = await supabase.storage.from('cluster-images').remove(imagePaths);
-            if(storageError) console.error("Could not delete some images from storage", storageError);
-        }
-      }
-
-      const { error } = await supabase.from('clusters').delete().eq('user_id', user.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.info("All your collections have been cleared.");
-      queryClient.invalidateQueries({ queryKey: ['clusters', user?.id] });
-    },
-    onError: (error: Error) => {
-      toast.error("Failed to clear collections", { description: error.message });
-    }
-  });
-
-  const handleClearClusters = () => {
-    if (user) {
-      clearClustersMutation.mutate();
-      return;
-    }
-
-    // Guest user logic
-    clusters.forEach(cluster => {
-        cluster.images.forEach(image => URL.revokeObjectURL(image.url));
-    });
-
-    localStorage.removeItem('guestClusters');
-    setClusters([]);
-    toast.info("All your local collections have been cleared.");
-  };
-
-  const handleApplyFilters = (filters: { tags: string[] }) => {
-    setActiveFilters(filters);
   };
 
   const isInitialView = clusters.length === 0 && !isProcessing && !isLoadingClusters;
@@ -434,7 +74,7 @@ const IndexPage = () => {
         accept="image/*"
         className="hidden"
       />
-      <Header 
+      <Header
         isScrolled={isScrolled}
         showTopUploadButton={!isInitialView}
         onTopUploadClick={handleUploadClick}
@@ -445,48 +85,18 @@ const IndexPage = () => {
         {isProcessing ? (
           <ProcessingView files={processingFiles} isClustering={isClustering} />
         ) : isInitialView ? (
-          <div className="flex-grow flex flex-col items-center justify-center text-center">
-            <h1 className="text-[54px] font-bold tracking-tight mb-2 animate-fade-in" style={{ animationDelay: '0.2s' }}>
-              Drop. <span className="bg-gradient-to-r from-orange via-red to-orange bg-[length:200%_auto] bg-clip-text text-transparent animate-gradient-pan">Sort.</span> <span className="bg-gradient-to-r from-primary via-violet to-primary bg-[length:200%_auto] bg-clip-text text-transparent animate-gradient-pan">Discover.</span>
-            </h1>
-            <p className="text-lg md:text-xl text-muted-foreground mb-6 animate-fade-in" style={{ animationDelay: '0.3s' }}>
-              Your mess, beautifully sorted.
-            </p>
-            <UploadZone onUpload={handleUploadClick} />
-          </div>
+          <InitialView onUpload={handleUploadClick} />
         ) : (
-          <div className="flex-1 w-full animate-fade-in">
-            {clusters.length > 0 && filteredClusters.length === 0 && activeFilters.tags.length > 0 ? (
-                 <div className="text-center py-16 flex flex-col items-center">
-                    <Frown className="h-16 w-16 text-muted-foreground/50 mb-4" />
-                    <h3 className="text-xl font-semibold text-foreground">No clusters match your filters</h3>
-                    <p className="text-muted-foreground mt-2 max-w-sm">Try adjusting or clearing your filters to see more results.</p>
-                    <Button variant="outline" onClick={() => setIsFilterSheetOpen(true)} className="mt-4">
-                        Adjust Filters
-                    </Button>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {filteredClusters.map((cluster) => (
-                    <ClusterCard
-                      key={cluster.id}
-                      cluster={cluster}
-                      onViewCluster={handleViewCluster}
-                      onDeleteCluster={handleDeleteCluster}
-                    />
-                  ))}
-                </div>
-            )}
-            
-            {clusters.length > 0 && !isProcessing && (
-               <div className="mt-8 text-center">
-                <Button variant="outline" onClick={handleClearClusters} className="text-destructive hover:text-destructive/80 hover:border-destructive/50" disabled={clearClustersMutation.isPending}>
-                  <Trash2 className="mr-2 h-4 w-4" /> 
-                  {clearClustersMutation.isPending ? 'Clearing...' : 'Clear All Collections'}
-                </Button>
-              </div>
-            )}
-          </div>
+          <Dashboard
+            filteredClusters={filteredClusters}
+            allClusters={clusters}
+            hasActiveFilters={activeFilters.tags.length > 0}
+            onViewCluster={handleViewCluster}
+            onDeleteCluster={deleteCluster}
+            onClearAll={clearClusters}
+            onAdjustFilters={() => setIsFilterSheetOpen(true)}
+            isClearing={clearClustersMutation.isPending}
+          />
         )}
       </main>
       <footer className={cn(
@@ -495,13 +105,13 @@ const IndexPage = () => {
       )}>
         MatchLens © {new Date().getFullYear()} - Created with Lovable.
       </footer>
-      {!isInitialView && user && (
+      {!isInitialView && (
          <FilterSheet 
            isOpen={isFilterSheetOpen} 
            onOpenChange={setIsFilterSheetOpen}
            allTags={allTags}
            activeFilters={activeFilters}
-           onApplyFilters={handleApplyFilters}
+           onApplyFilters={setActiveFilters}
          />
       )}
     </div>
