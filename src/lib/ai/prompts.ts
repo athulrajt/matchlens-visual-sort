@@ -1,43 +1,29 @@
 
 export const TAG_PROMPTS = {
-  style: [
-    "minimalist design", "brutalist design", "flat design", "3D design", "vaporwave aesthetic",
-    "skeuomorphic design", "neumorphism", "material design", "glassmorphism", "retro design",
-    "organic design", "futuristic design", "hand-drawn style", "high-contrast UI", "dark mode UI",
-    "vintage aesthetic", "pastel aesthetic", "cyberpunk style", "claymorphism", "bento UI"
+  // High-level design discipline
+  design_discipline: [
+    "graphic design", "web design", "mobile UI design", "product design", "illustration",
+    "poster design", "logo design", "typography design", "branding", "icon design",
   ],
-  object: [
-    "temple", "mosque", "church", "person", "face", "hand", "screenshot", "mobile phone",
-    "car", "building", "poster", "map", "food", "bottle", "flower", "furniture", "chair",
-    "table", "camera", "shoe", "gadget", "calendar", "chat screen", "dashboard", "form UI"
+  // Specific UI patterns and components
+  ui_pattern: [
+    "dashboard UI", "app onboarding flow", "login screen", "signup form", "hero section",
+    "call to action button", "navigation menu", "user profile page", "e-commerce product page",
+    "data table", "form elements", "search bar",
   ],
-  artform: [
-    "anime", "manga", "pixel art", "watercolor painting", "line art", "poster art",
-    "collage", "photograph", "3D render", "digital painting", "oil painting", "vector art",
-    "isometric illustration", "doodle art", "graffiti", "calligraphy", "typography", "UI wireframe"
+  // Content type and style
+  content_style: [
+    "photograph", "3D render", "vector art", "pixel art", "line art", "doodle",
+    "minimalist", "brutalist", "retro", "futuristic", "dark mode", "light mode",
+    "color palette", "design system components", "wireframe", "screenshot"
   ],
-  architecture: [
-    "gothic architecture", "dravidian architecture", "mughal architecture", "modernist architecture",
-    "brutalist building", "glass skyscraper", "traditional Kerala house", "European castle",
-    "temple tower", "Islamic dome", "Japanese pagoda", "minimalist architecture"
+  // Subject matter
+  subject: [
+    "person", "building", "animal", "plant", "food", "technology", "nature", "vehicle"
   ],
-  clothing: [
-    "saree", "lehenga", "kurta", "lungi", "jeans", "t-shirt", "salwar", "sherwani", "gown",
-    "hoodie", "suit", "traditional dress", "school uniform", "office wear", "streetwear",
-    "sportswear", "ethnic wear", "festival clothing", "bridal dress"
-  ],
-  pattern: [
-    "floral pattern", "geometric pattern", "mandala", "stripes", "checkered", "dots",
-    "paisley", "ikat", "kalamkari", "ajrak", "warli motifs", "block print", "minimal pattern",
-    "bold pattern", "retro pattern", "ornamental pattern", "tribal pattern", "abstract shapes"
-  ],
-  screenshot: [
-    "mobile app UI", "web dashboard", "chat app", "signup form", "profile page",
-    "e-commerce page", "product listing", "login screen", "payment screen",
-    "movie scene screenshot", "youtube thumbnail", "instagram story", "whatsapp chat", "banking app"
-  ],
+  // Mood and aesthetic
   mood: [
-    "vibrant", "calm", "energetic", "serene", "dark", "happy", "bold", "moody", "playful",
-    "professional", "luxurious", "nostalgic", "futuristic", "artistic", "cute", "mystical"
+    "vibrant", "calm", "energetic", "serene", "professional", "playful",
+    "luxurious", "nostalgic", "modern", "corporate", "artistic"
   ]
 };

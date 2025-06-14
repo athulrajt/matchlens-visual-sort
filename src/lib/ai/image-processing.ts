@@ -55,25 +55,35 @@ export const getPaletteFromImage = (imageUrl: string, colorCount = 5): Promise<s
  * for zero-shot classification against a curated list of prompts.
  * @param classifier The zero-shot-image-classification pipeline instance.
  * @param image The RawImage to process.
- * @returns A promise that resolves to an array of string tags.
+ * @returns A promise that resolves to an array of tag objects with labels and scores, sorted by score.
  */
-export const getCLIPTags = async (classifier: any, image: RawImage): Promise<string[]> => {
-    const tags: string[] = [];
+export const getCLIPTags = async (classifier: any, image: RawImage): Promise<{label: string, score: number}[]> => {
+    const allMatches: {label: string, score: number}[] = [];
 
     for (const prompts of Object.values(TAG_PROMPTS)) {
         try {
-            // Use top_k: 1 for efficiency as we only need the best match per category.
             const result = await classifier(image, prompts, { top_k: 1 });
             const topMatch = result[0];
 
             // Add the tag only if its confidence score is above a threshold.
             if (topMatch && topMatch.score > 0.5) {
-                tags.push(topMatch.label);
+                allMatches.push({ label: topMatch.label, score: topMatch.score });
             }
         } catch (e) {
             console.error("Failed to get CLIP tags for a category:", e);
         }
     }
 
-    return [...new Set(tags)]; // Return unique tags
+    // If a label appears multiple times, keep the one with the highest score.
+    const tagMap = new Map<string, number>();
+    for (const match of allMatches) {
+        if (!tagMap.has(match.label) || (tagMap.get(match.label) ?? 0) < match.score) {
+            tagMap.set(match.label, match.score);
+        }
+    }
+
+    const uniqueScoredTags = Array.from(tagMap.entries()).map(([label, score]) => ({ label, score }));
+
+    // Return unique tags, sorted by score in descending order
+    return uniqueScoredTags.sort((a, b) => b.score - a.score);
 };
