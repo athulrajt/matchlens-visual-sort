@@ -193,10 +193,10 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
         const palette = await getPaletteFromImage(images[0].url).catch(() => []);
         
         const allClusterTags = newClusterItems.flatMap(i => i.tags);
-        const tagFrequenciesForCluster = allClusterTags.reduce((acc, tag) => {
+        const tagFrequenciesForCluster = allClusterTags.reduce<Record<string, number>>((acc, tag) => {
             acc[tag] = (acc[tag] || 0) + 1;
             return acc;
-        }, {} as Record<string, number>);
+        }, {});
 
         const topTags = Object.keys(tagFrequenciesForCluster)
             .sort((a, b) => tagFrequenciesForCluster[b] - tagFrequenciesForCluster[a])
