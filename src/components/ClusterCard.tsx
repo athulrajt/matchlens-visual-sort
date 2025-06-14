@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { ClusterType } from '@/types';
-import { MoreHorizontal, Download } from 'lucide-react';
+import { MoreHorizontal, Download, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from 'sonner';
@@ -9,9 +8,10 @@ import { toast } from 'sonner';
 interface ClusterCardProps {
   cluster: ClusterType;
   onViewCluster: (cluster: ClusterType) => void;
+  onDeleteCluster: (clusterId: string) => void;
 }
 
-const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster }) => {
+const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster, onDeleteCluster }) => {
   const images = cluster.images;
   const imageCount = images.length;
 
@@ -23,6 +23,11 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster }) => 
     e.stopPropagation();
     toast.info(`Exporting ${cluster.images.length} images from "${cluster.title}"...`);
     // Placeholder for actual export logic
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDeleteCluster(cluster.id);
   };
 
   return (
@@ -41,6 +46,10 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster }) => 
             <DropdownMenuItem onClick={handleExport}>
               <Download className="mr-2 h-4 w-4" />
               <span>Export</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleDelete} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+              <Trash2 className="mr-2 h-4 w-4" />
+              <span>Delete</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '@/components/Header';
 import UploadZone from '@/components/UploadZone';
-import ClusterGrid from '@/components/ClusterGrid';
+import ClusterCard from '@/components/ClusterCard';
 import FilterSheet from '@/components/FilterSheet';
 import { ClusterType, ImageType } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ const IndexPage = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
   
   const { data: clusters = [], isLoading: isLoadingClusters, refetch: refetchClusters } = useQuery<ClusterType[]>({
     queryKey: ['clusters', user?.id],
@@ -78,6 +79,14 @@ const IndexPage = () => {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  useEffect(() => {
+    if (location.state?.clearFilters) {
+      setActiveFilters({ tags: [] });
+      // Clear state after using it to avoid re-triggering
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, navigate, location.pathname]);
 
   // Effect to clean up object URLs on unmount or when clusters change
   useEffect(() => {
@@ -265,6 +274,38 @@ const IndexPage = () => {
     navigate(`/cluster/${cluster.id}`, { state: { cluster } });
   };
 
+  const deleteClusterMutation = useMutation({
+    mutationFn: async (clusterId: string) => {
+      if (!user) throw new Error("User not found");
+
+      const clusterToDelete = clusters.find(c => c.id === clusterId);
+      if (!clusterToDelete) throw new Error("Cluster not found");
+      
+      const imagePaths = clusterToDelete.images.map(img => `${user.id}/${clusterToDelete.id}/${img.alt}`);
+      if(imagePaths.length > 0) {
+          const { error: storageError } = await supabase.storage.from('cluster-images').remove(imagePaths);
+          if(storageError) console.error("Could not delete images from storage", storageError);
+      }
+
+      const { error } = await supabase.from('clusters').delete().eq('id', clusterId);
+      if (error) throw error;
+      
+      return clusterToDelete.title;
+    },
+    onSuccess: (deletedTitle) => {
+      toast.success(`Collection "${deletedTitle}" has been deleted.`);
+      queryClient.invalidateQueries({ queryKey: ['clusters', user?.id] });
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to delete collection", { description: error.message });
+    }
+  });
+
+  const handleDeleteCluster = (clusterId: string) => {
+    if (!user) return;
+    deleteClusterMutation.mutate(clusterId);
+  };
+
   const clearClustersMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("User not found");
@@ -343,7 +384,16 @@ const IndexPage = () => {
                     </Button>
                 </div>
             ) : (
-                <ClusterGrid clusters={filteredClusters} onViewCluster={handleViewCluster} />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {filteredClusters.map((cluster) => (
+                    <ClusterCard
+                      key={cluster.id}
+                      cluster={cluster}
+                      onViewCluster={handleViewCluster}
+                      onDeleteCluster={handleDeleteCluster}
+                    />
+                  ))}
+                </div>
             )}
             
             {clusters.length > 0 && !isProcessing && (
