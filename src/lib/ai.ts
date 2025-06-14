@@ -1,3 +1,4 @@
+
 import { pipeline, RawImage } from '@huggingface/transformers';
 import { kmeans } from 'ml-kmeans';
 import { ClusterType, ImageType } from '@/types';
@@ -7,8 +8,12 @@ let extractor = null;
 
 const getExtractor = async () => {
   if (extractor === null) {
-    // Trying a different model architecture (DINOv2) as requested, to see if it resolves the persistent input issue.
-    extractor = await pipeline('feature-extraction', 'Xenova/dinov2-base', { quantized: false } as any);
+    // The previous model, 'dinov2-base', failed because the feature-extraction pipeline
+    // was incorrectly trying to load a text tokenizer, which doesn't exist for that vision-only model.
+    // We are switching to 'Xenova/clip-vit-base-patch32', a standard and reliable Vision Transformer model.
+    // It's well-supported for this task and includes the necessary components for the pipeline to work correctly.
+    // We also explicitly set `quantized: false` to use the full-precision model for better accuracy and stability.
+    extractor = await pipeline('feature-extraction', 'Xenova/clip-vit-base-patch32', { quantized: false } as any);
   }
   return extractor;
 };
