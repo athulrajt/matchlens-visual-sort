@@ -3,13 +3,13 @@ import React from 'react';
 import { ImagePlus } from 'lucide-react';
 
 interface UploadZoneProps {
-  onSimulateUpload: () => void;
+  onUpload: () => void;
 }
 
-const UploadZone: React.FC<UploadZoneProps> = ({ onSimulateUpload }) => {
+const UploadZone: React.FC<UploadZoneProps> = ({ onUpload }) => {
   return (
     <div 
-      onClick={onSimulateUpload}
+      onClick={onUpload}
       style={{ animationDelay: '0.4s' }}
       className="w-full max-w-xl text-center animate-fade-in rounded-4xl p-10 sm:p-16 bg-card/50 backdrop-blur-sm shadow-soft space-y-4 cursor-pointer border border-transparent hover:border-primary/50 hover:bg-card/60 transition-all duration-300"
     >

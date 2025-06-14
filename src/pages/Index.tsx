@@ -1,23 +1,25 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Header from '@/components/Header';
 import UploadZone from '@/components/UploadZone';
 import ClusterGrid from '@/components/ClusterGrid';
-import FilterSheet from '@/components/FilterSheet'; // Changed from FilterPanel
+import FilterSheet from '@/components/FilterSheet';
 import ImageGalleryModal from '@/components/ImageGalleryModal';
-import { mockClusters } from '@/lib/mockData';
 import { ClusterType } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from "sonner";
+import { clusterImages } from '@/lib/ai';
 
 const IndexPage = () => {
   const [clusters, setClusters] = useState<ClusterType[]>([]);
   const [selectedCluster, setSelectedCluster] = useState<ClusterType | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false); // New state for filter sheet
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -27,13 +29,46 @@ const IndexPage = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handleSimulateUpload = () => {
-    setIsLoading(true);
-    setClusters([]); 
-    setTimeout(() => {
-      setClusters(mockClusters);
-      setIsLoading(false);
-    }, 1500);
+  // Effect to clean up object URLs on unmount or when clusters change
+  useEffect(() => {
+    return () => {
+      clusters.forEach(cluster => {
+        cluster.images.forEach(image => URL.revokeObjectURL(image.url));
+      });
+    };
+  }, [clusters]);
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      setIsLoading(true);
+      setClusters([]);
+      toast.info("Warming up the AI... This may take a moment on first use.", {
+        duration: 8000,
+      });
+      try {
+        const newClusters = await clusterImages(Array.from(files));
+        setClusters(newClusters);
+        if (newClusters.length > 0) {
+          toast.success(`Successfully created ${newClusters.length} smart cluster(s)!`);
+        } else {
+          toast.warning("No images were processed. Please try again.");
+        }
+      } catch (error) {
+        console.error("Error clustering images:", error);
+        toast.error("Oops! Something went wrong while clustering images.");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    // Reset file input to allow re-uploading the same files
+    if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+    }
   };
 
   const handleViewCluster = (cluster: ClusterType) => {
@@ -47,17 +82,30 @@ const IndexPage = () => {
   };
 
   const handleClearClusters = () => {
+    // Revoke object URLs to prevent memory leaks
+    clusters.forEach(cluster => {
+        cluster.images.forEach(image => URL.revokeObjectURL(image.url));
+    });
     setClusters([]);
+    toast.info("All clusters have been cleared.");
   };
 
   const isInitialView = clusters.length === 0 && !isLoading;
 
   return (
     <div className="flex flex-col min-h-screen bg-transparent">
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        multiple
+        accept="image/*"
+        className="hidden"
+      />
       <Header 
         isScrolled={isScrolled}
         showTopUploadButton={!isInitialView}
-        onTopUploadClick={handleSimulateUpload}
+        onTopUploadClick={handleUploadClick}
         showFilterButton={!isInitialView}
         onFilterButtonClick={() => setIsFilterSheetOpen(true)}
       />
@@ -70,7 +118,7 @@ const IndexPage = () => {
             <p className="text-lg md:text-xl text-muted-foreground mb-8 animate-fade-in" style={{ animationDelay: '0.3s' }}>
               Your mess, beautifully sorted.
             </p>
-            <UploadZone onSimulateUpload={handleSimulateUpload} />
+            <UploadZone onUpload={handleUploadClick} />
           </div>
         ) : (
           <div className="flex-1 w-full">
