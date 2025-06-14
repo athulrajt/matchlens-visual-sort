@@ -9,6 +9,7 @@ import { mockClusters } from '@/lib/mockData';
 import { ClusterType } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const IndexPage = () => {
   const [clusters, setClusters] = useState<ClusterType[]>([]);
@@ -16,6 +17,15 @@ const IndexPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false); // New state for filter sheet
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const handleSimulateUpload = () => {
     setIsLoading(true);
@@ -45,6 +55,7 @@ const IndexPage = () => {
   return (
     <div className="flex flex-col min-h-screen bg-transparent">
       <Header 
+        isScrolled={isScrolled}
         showTopUploadButton={!isInitialView}
         onTopUploadClick={handleSimulateUpload}
         showFilterButton={!isInitialView}
@@ -81,7 +92,10 @@ const IndexPage = () => {
           </div>
         )}
       </main>
-      <footer className="text-center py-6 border-t border-border/60 text-sm text-muted-foreground bg-background/80 backdrop-blur-sm">
+      <footer className={cn(
+        "text-center py-6 border-t text-sm text-muted-foreground transition-all duration-300",
+        isScrolled ? "border-border/60 bg-background/80 backdrop-blur-sm" : "bg-transparent border-transparent"
+      )}>
         MatchLens © {new Date().getFullYear()} - Created with Lovable.
       </footer>
       {selectedCluster && (
