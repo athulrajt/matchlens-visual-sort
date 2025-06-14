@@ -26,7 +26,7 @@ const Header: React.FC<HeaderProps> = ({
     )}>
       <div className="container mx-auto flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <img src="/lovable-uploads/c1bd31d2-9913-4298-9c84-42ee5761099c.png" alt="MatchLens Logo" className="h-8 w-8" />
+          <img src="/logo.svg" alt="MatchLens Logo" className="h-8 w-8" />
           <h1 className="text-xl font-bold text-foreground">
             MatchLens
           </h1>
