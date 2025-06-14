@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,8 +9,9 @@ import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AiLoader from "@/components/AiLoader";
+import { useAuth } from "@/contexts/AuthProvider";
 
 const signUpSchema = z.object({
   firstName: z.string().min(1, { message: "First name is required" }),
@@ -30,6 +30,13 @@ type SignInForm = z.infer<typeof signInSchema>;
 export default function AuthPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      navigate("/");
+    }
+  }, [user, navigate]);
 
   const signUpForm = useForm<SignUpForm>({
     resolver: zodResolver(signUpSchema),
@@ -48,16 +55,14 @@ export default function AuthPage() {
         data: {
           first_name: data.firstName,
         },
-        emailRedirectTo: `${window.location.origin}/`,
       },
     });
     setLoading(false);
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("Check your email!", {
-        description: "We've sent a confirmation link to your email address.",
-      });
+      toast.success("Account created successfully!");
+      navigate("/");
     }
   };
 
@@ -75,6 +80,14 @@ export default function AuthPage() {
       navigate("/");
     }
   };
+
+  if (user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <AiLoader />
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
