@@ -1,4 +1,4 @@
-import { pipeline } from '@huggingface/transformers';
+import { pipeline, RawImage } from '@huggingface/transformers';
 import { kmeans } from 'ml-kmeans';
 import { ClusterType, ImageType } from '@/types';
 
@@ -73,27 +73,32 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
     
     const featureExtractor = await getExtractor();
 
-    const imageInfos: ImageType[] = files.map((file, i) => ({
-        id: `${file.name}-${i}`,
-        url: URL.createObjectURL(file),
-        alt: file.name
-    }));
-
     // 1. Extract embeddings for all images in parallel, handling errors
     const embeddingResults = await Promise.all(
-        imageInfos.map(image =>
-            featureExtractor(image.url, { pooling: 'mean', normalize: true })
-                .then(res => ({
-                    embedding: Array.from(res.data as Float32Array),
-                    info: image
-                }))
-                .catch(err => {
-                    console.error(`Failed to process image ${image.alt}:`, err);
-                    return null;
-                })
-        )
-    );
+        files.map(async (file, i) => {
+            const imageInfo: ImageType = {
+                id: `${file.name}-${i}`,
+                url: URL.createObjectURL(file),
+                alt: file.name
+            };
 
+            try {
+                // Use RawImage to load blob data directly, which is more reliable than using blob URLs.
+                const image = await RawImage.fromBlob(file);
+                const res = await featureExtractor(image, { pooling: 'mean', normalize: true });
+                return {
+                    embedding: Array.from(res.data as Float32Array),
+                    info: imageInfo
+                };
+            } catch (err) {
+                console.error(`Failed to process image ${imageInfo.alt}:`, err);
+                // Important: Revoke the object URL if processing fails to prevent memory leaks.
+                URL.revokeObjectURL(imageInfo.url);
+                return null;
+            }
+        })
+    );
+    
     const validResults = embeddingResults.filter(Boolean) as { embedding: number[], info: ImageType }[];
 
     // If not enough images were processed successfully for clustering
@@ -108,6 +113,7 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
                 palette: await getPaletteFromImage(info.url).catch(() => []),
             }];
         }
+        // If 0 valid results, all URLs have been revoked in catch blocks. No memory leak.
         return [];
     }
 
@@ -131,6 +137,9 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
     // 4. Format clusters and generate palettes in parallel
     const finalClusters = await Promise.all(
         Object.values(tempClusters).map(async (images, index) => {
+            // Safety check for empty clusters, although it shouldn't happen with current logic.
+            if (images.length === 0) return null;
+            
             const palette = await getPaletteFromImage(images[0].url).catch(err => {
                 console.error(`Failed to generate palette for cluster ${index + 1}:`, err);
                 return []; // Return empty palette on error
