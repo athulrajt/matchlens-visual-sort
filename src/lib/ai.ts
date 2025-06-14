@@ -7,11 +7,9 @@ let extractor = null;
 
 const getExtractor = async () => {
   if (extractor === null) {
-    // Using a lightweight CLIP model for fast feature extraction in the browser.
-    // The model will be downloaded on the first use.
-    // We specify quantized: false because the default quantized version of this model is broken.
-    // See: https://huggingface.co/Xenova/clip-vit-base-patch32/discussions/8
-    extractor = await pipeline('feature-extraction', 'Xenova/clip-vit-base-patch32', { quantized: false } as any);
+    // Swapping to a different CLIP model to rule out issues with the previous one.
+    // We still specify quantized: false to ensure we get the full-precision model.
+    extractor = await pipeline('feature-extraction', 'Xenova/clip-vit-large-patch14', { quantized: false } as any);
   }
   return extractor;
 };
@@ -101,12 +99,13 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
             };
 
             try {
-                // Let's try passing the object URL directly to the pipeline.
-                // The pipeline is designed to handle URLs and should manage loading and preprocessing.
-                // This often works better than manually creating a RawImage object and should fix the "Missing pixel_values" error.
-                const res = await featureExtractor(imageInfo.url, { pooling: 'mean', normalize: true });
+                // Reverting to RawImage.fromBlob() as it's a more direct and reliable way to handle local files
+                // compared to passing blob URLs, which was causing issues.
+                const image = await RawImage.fromBlob(file);
                 
-                console.log(`✅ Embedding extracted for ${file.name}. Type:`, res?.data?.constructor?.name);
+                const res = await featureExtractor(image, { pooling: 'mean', normalize: true });
+                
+                console.log(`✅ Embedding extracted for ${file.name}.`);
 
                 if (!res || !res.data || !(res.data instanceof Float32Array)) {
                     throw new Error(`Invalid result from feature extractor for ${file.name}. Expected Float32Array, got ${res?.data?.constructor?.name}.`);
