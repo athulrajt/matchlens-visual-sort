@@ -1,5 +1,4 @@
-
-import { AutoModel, AutoProcessor, RawImage } from '@huggingface/transformers';
+import { AutoProcessor, RawImage, CLIPVisionModel } from '@huggingface/transformers';
 import { kmeans } from 'ml-kmeans';
 import { ClusterType, ImageType } from '@/types';
 
@@ -9,10 +8,10 @@ let processor: any = null;
 
 const getExtractor = async () => {
     if (model === null || processor === null) {
-        // We now use AutoProcessor and AutoModel to have fine-grained control over the preprocessing,
-        // which resolves "Missing pixel_values" errors.
+        // We now use AutoProcessor and CLIPVisionModel to load the vision encoder specifically,
+        // which resolves "Missing input_ids" errors.
         processor = await AutoProcessor.from_pretrained('Xenova/clip-vit-base-patch32', {});
-        model = await AutoModel.from_pretrained('Xenova/clip-vit-base-patch32', {});
+        model = await CLIPVisionModel.from_pretrained('Xenova/clip-vit-base-patch32', {});
     }
 
     // Return a function that performs the extraction, including normalization.
