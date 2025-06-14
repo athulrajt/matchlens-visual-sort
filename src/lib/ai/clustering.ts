@@ -3,9 +3,11 @@ import { RawImage } from '@huggingface/transformers';
 import { ClusterType, ImageType } from '@/types';
 import { getCaptioner, getFeatureExtractor } from './pipelines';
 import { getPaletteFromImage, getTagsForImage } from './image-processing';
+import { kmeans } from 'ml-kmeans';
 
 /**
- * Takes an array of image files, generates tags for them, and clusters them based on shared tags.
+ * Takes an array of image files, generates embeddings, clusters them using k-means,
+ * and then generates descriptive metadata for each cluster.
  * @param files An array of image files.
  * @returns A promise that resolves to an array of ClusterType objects.
  */
@@ -16,105 +18,109 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
         console.warn("Some files were not images and have been filtered out.");
     }
     
-    if (imageFiles.length === 0) return [];
+    const numImages = imageFiles.length;
+    if (numImages === 0) return [];
     
     // Initialize both AI pipelines
+    const featureExtractorPipeline = await getFeatureExtractor();
     const captionerPipeline = await getCaptioner();
-    // We still need the extractor for potential future use or more advanced clustering
-    await getFeatureExtractor(); 
     console.log("✅ AI pipelines ready for processing.");
 
-    // 1. Process all images to get tags and other info
-    const processingResults = await Promise.all(
-        imageFiles.map(async (file, i) => {
-            const imageInfo: ImageType = {
-                id: `${file.name}-${i}`,
-                url: URL.createObjectURL(file),
-                alt: file.name
-            };
+    // 1. Create ImageType objects to hold file info
+    const imageInfos: (ImageType & { file: File })[] = imageFiles.map((file, i) => ({
+        id: `${file.name}-${i}`,
+        url: URL.createObjectURL(file),
+        alt: file.name,
+        file: file,
+    }));
 
+    // 2. Extract features (embeddings) for all images
+    console.log('Extracting features from images...');
+    const features = await Promise.all(
+        imageInfos.map(async (info) => {
             try {
-                const image = await RawImage.read(file);
-                const tags = await getTagsForImage(captionerPipeline, image);
-                console.log(`✅ Processed ${file.name}: Tags - [${tags.join(', ')}]`);
-
-                return { info: imageInfo, tags };
+                const image = await RawImage.read(info.file);
+                const result = await featureExtractorPipeline(image, { pooling: 'mean', normalize: true });
+                return Array.from(result.data as Float32Array);
             } catch (err) {
-                console.error(`❌ Failed to process image ${imageInfo.alt}:`, err);
-                URL.revokeObjectURL(imageInfo.url); // Prevent memory leak on error
+                console.error(`❌ Failed to extract features from ${info.alt}:`, err);
+                URL.revokeObjectURL(info.url); // Prevent memory leak on error
                 return null;
             }
         })
     );
     
-    const validResults = processingResults.filter(Boolean) as { info: ImageType, tags: string[] }[];
-    if (validResults.length === 0) return [];
+    const validFeatures = features.filter(f => f !== null) as number[][];
+    const validImageInfos = imageInfos.filter((_, i) => features[i] !== null);
 
-    // 2. Cluster images using a greedy algorithm based on most frequent shared tags
-    const finalClusters: (ClusterType | null)[] = [];
-    let unclustered = [...validResults];
-    const minClusterSize = 2;
+    if (validFeatures.length < 1) return [];
 
-    while (unclustered.length >= minClusterSize) {
-        const tagFrequencies: Record<string, number> = {};
-        unclustered.forEach(result => {
-            result.tags.forEach(tag => {
-                tagFrequencies[tag] = (tagFrequencies[tag] || 0) + 1;
-            });
-        });
+    // 3. Cluster images using k-means on the features
+    console.log('Clustering images with k-means...');
+    
+    // Heuristic to determine the number of clusters (k)
+    const k = Math.min(Math.max(1, Math.ceil(validFeatures.length / 4)), 10, validFeatures.length);
+    
+    const kmeansResult = kmeans(validFeatures, k, {});
+    
+    const clusteredImageGroups: { images: (ImageType & { file: File })[] }[] = Array.from({ length: k }, () => ({ images: [] }));
+    kmeansResult.clusters.forEach((clusterIndex, i) => {
+        if (clusteredImageGroups[clusterIndex]) {
+            clusteredImageGroups[clusterIndex].images.push(validImageInfos[i]);
+        }
+    });
 
-        const bestTag = Object.entries(tagFrequencies)
-            .filter(([, count]) => count >= minClusterSize)
-            .sort(([, a], [, b]) => b - a)[0];
+    // 4. Process each cluster to generate metadata (title, tags, etc.)
+    console.log('Generating metadata for clusters...');
+    const finalClusters = await Promise.all(
+        clusteredImageGroups
+            .filter(c => c.images.length > 0)
+            .map(async (clusterGroup, i) => {
+                const { images } = clusterGroup;
+                
+                // For tags and title, caption a few representative images from the cluster
+                const representativeImages = images.slice(0, 3);
+                const allTags: string[] = (await Promise.all(
+                    representativeImages.map(async (imgInfo) => {
+                        const rawImg = await RawImage.read(imgInfo.file);
+                        return getTagsForImage(captionerPipeline, rawImg);
+                    })
+                )).flat();
 
-        if (!bestTag) break; // No more tags can form a valid cluster
+                const tagFrequencies = allTags.reduce<Record<string, number>>((acc, tag) => {
+                    acc[tag] = (acc[tag] || 0) + 1;
+                    return acc;
+                }, {});
 
-        const [clusterTag] = bestTag;
-        
-        const newClusterItems = unclustered.filter(r => r.tags.includes(clusterTag));
-        unclustered = unclustered.filter(r => !r.tags.includes(clusterTag));
+                const topTags = Object.entries(tagFrequencies)
+                    .sort(([, countA], [, countB]) => countB - countA)
+                    .slice(0, 5)
+                    .map(([tag]) => tag);
 
-        const images = newClusterItems.map(item => item.info);
-        const palette = await getPaletteFromImage(images[0].url).catch(() => []);
-        
-        const allClusterTags = newClusterItems.flatMap(i => i.tags);
-        const tagFrequenciesForCluster = allClusterTags.reduce<Record<string, number>>((acc, tag) => {
-            acc[tag] = (acc[tag] || 0) + 1;
-            return acc;
-        }, {});
+                const clusterTitle = topTags.length > 0
+                    ? `${topTags[0].charAt(0).toUpperCase() + topTags[0].slice(1)} Collection`
+                    : `Image Cluster #${i + 1}`;
+                
+                const description = topTags.length > 0
+                    ? `A collection of ${images.length} images related to: ${topTags.join(', ')}.`
+                    : `A collection of ${images.length} similar images.`;
+                
+                const palette = await getPaletteFromImage(images[0].url).catch(() => []);
 
-        const topTags = Object.entries(tagFrequenciesForCluster)
-            .sort(([, countA], [, countB]) => countB - countA)
-            .slice(0, 5)
-            .map(([tag]) => tag);
+                // Remove the 'file' property before returning to match the ImageType interface
+                const finalImages: ImageType[] = images.map(({ file, ...rest }) => rest);
 
-        finalClusters.push({
-            id: `cluster-tag-${clusterTag}-${Date.now()}`,
-            title: `${clusterTag.charAt(0).toUpperCase() + clusterTag.slice(1)} Collection`,
-            description: `A collection of ${images.length} images related to "${clusterTag}".`,
-            images,
-            palette,
-            tags: topTags,
-        });
-    }
-
-    // 3. Handle any leftover images as single-item miscellaneous clusters
-    if (unclustered.length > 0) {
-        const miscClusters = await Promise.all(
-            unclustered.map(async ({ info, tags }) => {
-                const palette = await getPaletteFromImage(info.url).catch(() => []);
                 return {
-                    id: `cluster-single-${info.id}`,
-                    title: 'Miscellaneous Image',
-                    description: 'This image did not fit into a larger category.',
-                    images: [info],
+                    id: `cluster-sim-${i}-${Date.now()}`,
+                    title: clusterTitle,
+                    description,
+                    images: finalImages,
                     palette,
-                    tags,
+                    tags: topTags,
                 };
             })
-        );
-        finalClusters.push(...miscClusters);
-    }
+    );
     
-    return finalClusters.filter(Boolean) as ClusterType[];
+    // Sort clusters by size (descending) for better presentation
+    return finalClusters.sort((a, b) => b.images.length - a.images.length);
 };
