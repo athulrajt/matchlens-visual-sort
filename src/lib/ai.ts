@@ -1,3 +1,4 @@
+
 import { pipeline, RawImage } from '@huggingface/transformers';
 import { kmeans } from 'ml-kmeans';
 import { ClusterType, ImageType } from '@/types';
@@ -57,7 +58,10 @@ const getPaletteFromImage = (imageUrl: string, colorCount = 5): Promise<string[]
             });
             resolve(palette);
         };
-        img.onerror = reject;
+        img.onerror = (e) => {
+            console.error('Image could not be loaded for palette generation:', e);
+            reject(new Error('Image could not be loaded for palette generation'));
+        };
         img.src = imageUrl;
     });
 };
@@ -69,13 +73,20 @@ const getPaletteFromImage = (imageUrl: string, colorCount = 5): Promise<string[]
  * @returns A promise that resolves to an array of ClusterType objects.
  */
 export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
-    if (files.length === 0) return [];
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length !== files.length) {
+        console.warn("Some files were not images and have been filtered out.");
+    }
+    
+    if (imageFiles.length === 0) return [];
     
     const featureExtractor = await getExtractor();
 
     // 1. Extract embeddings for all images in parallel, handling errors
     const embeddingResults = await Promise.all(
-        files.map(async (file, i) => {
+        imageFiles.map(async (file, i) => {
+            console.log(`Processing file: ${file.name}, type: ${file.type}, size: ${file.size} bytes`);
             const imageInfo: ImageType = {
                 id: `${file.name}-${i}`,
                 url: URL.createObjectURL(file),
@@ -85,13 +96,25 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
             try {
                 // Use RawImage to load blob data directly, which is more reliable than using blob URLs.
                 const image = await RawImage.fromBlob(file);
+                console.log(`RawImage loaded successfully for: ${file.name}`);
+
                 const res = await featureExtractor(image, { pooling: 'mean', normalize: true });
+                
+                if (!res || !res.data || !(res.data instanceof Float32Array)) {
+                    throw new Error(`Invalid result from feature extractor for ${file.name}`);
+                }
+
                 return {
                     embedding: Array.from(res.data as Float32Array),
                     info: imageInfo
                 };
             } catch (err) {
-                console.error(`Failed to process image ${imageInfo.alt}:`, err);
+                console.error(`Failed to process image ${imageInfo.alt}:`, {
+                    error: err,
+                    fileName: file.name,
+                    fileType: file.type,
+                    fileSize: file.size,
+                });
                 // Important: Revoke the object URL if processing fails to prevent memory leaks.
                 URL.revokeObjectURL(imageInfo.url);
                 return null;
