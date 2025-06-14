@@ -1,15 +1,14 @@
 
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetDescription,
-  SheetClose,
   SheetFooter,
 } from "@/components/ui/sheet";
-import { SlidersHorizontal, Palette, Type, Layout } from 'lucide-react';
+import { SlidersHorizontal, Palette, Tag } from 'lucide-react';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -17,27 +16,56 @@ import { Button } from "@/components/ui/button";
 interface FilterSheetProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  // onApplyFilters: () => void; // We can add this later
+  allTags: string[];
+  activeFilters: { tags: string[] };
+  onApplyFilters: (filters: { tags: string[] }) => void;
 }
 
-const FilterSheet: React.FC<FilterSheetProps> = ({ isOpen, onOpenChange }) => {
-  const filterGroups = [
+const FilterSheet: React.FC<FilterSheetProps> = ({ isOpen, onOpenChange, allTags, activeFilters, onApplyFilters }) => {
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set(activeFilters.tags));
+
+  // When sheet opens, sync its state with the active filters from the page
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedTags(new Set(activeFilters.tags));
+    }
+  }, [isOpen, activeFilters.tags]);
+
+  const handleTagChange = (tag: string, checked: boolean) => {
+    setSelectedTags(prev => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(tag);
+      } else {
+        newSet.delete(tag);
+      }
+      return newSet;
+    });
+  };
+
+  const handleApply = () => {
+    onApplyFilters({ tags: Array.from(selectedTags) });
+    onOpenChange(false);
+  };
+  
+  const handleClear = () => {
+    setSelectedTags(new Set());
+  };
+
+  const filterGroups = useMemo(() => [
     {
-      title: "Layout Type",
-      icon: Layout,
-      options: ["Grid", "Single Column", "Story-style"],
+      title: "Tags",
+      icon: Tag,
+      options: allTags.sort(),
+      type: 'tags'
     },
     {
       title: "Dominant Color/Mood",
       icon: Palette,
       options: ["Warm Tones", "Cool Tones", "Monochromatic", "Vibrant"],
+      type: 'colors'
     },
-    {
-      title: "Typography Presence",
-      icon: Type,
-      options: ["Serif", "Sans-serif", "Handwriting", "No Text"],
-    },
-  ];
+  ], [allTags]);
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
@@ -52,7 +80,7 @@ const FilterSheet: React.FC<FilterSheetProps> = ({ isOpen, onOpenChange }) => {
           </SheetDescription>
         </SheetHeader>
         
-        <div className="py-6 space-y-6 overflow-y-auto flex-grow pr-1"> {/* Adjusted padding for scrollbar */}
+        <div className="py-6 space-y-6 overflow-y-auto flex-grow pr-1">
           {filterGroups.map((group) => (
             <div key={group.title}>
               <h3 className="text-sm font-medium text-muted-foreground mb-2 flex items-center">
@@ -62,7 +90,16 @@ const FilterSheet: React.FC<FilterSheetProps> = ({ isOpen, onOpenChange }) => {
               <div className="space-y-2">
                 {group.options.map((option) => (
                   <div key={option} className="flex items-center space-x-2">
-                    <Checkbox id={`filter-sheet-${option.toLowerCase().replace(/\s+/g, "-")}`} />
+                    <Checkbox 
+                      id={`filter-sheet-${option.toLowerCase().replace(/\s+/g, "-")}`} 
+                      checked={group.type === 'tags' ? selectedTags.has(option) : false}
+                      onCheckedChange={(checked) => {
+                        if (group.type === 'tags') {
+                          handleTagChange(option, !!checked);
+                        }
+                        // NOTE: Color filtering logic is not yet implemented.
+                      }}
+                    />
                     <Label htmlFor={`filter-sheet-${option.toLowerCase().replace(/\s+/g, "-")}`} className="text-sm font-normal text-foreground">
                       {option}
                     </Label>
@@ -74,10 +111,8 @@ const FilterSheet: React.FC<FilterSheetProps> = ({ isOpen, onOpenChange }) => {
         </div>
 
         <SheetFooter className="mt-auto pt-4 border-t">
-          <SheetClose asChild>
-            <Button variant="outline" className="w-full sm:w-auto">Cancel</Button>
-          </SheetClose>
-          <Button className="w-full sm:w-auto" onClick={() => console.log("Apply filters clicked")}>Apply Filters</Button>
+          <Button variant="outline" className="w-full sm:w-auto" onClick={handleClear}>Clear</Button>
+          <Button className="w-full sm:w-auto" onClick={handleApply}>Apply Filters</Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

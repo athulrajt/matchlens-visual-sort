@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import UploadZone from '@/components/UploadZone';
@@ -7,7 +7,7 @@ import ClusterGrid from '@/components/ClusterGrid';
 import FilterSheet from '@/components/FilterSheet';
 import { ClusterType } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Frown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from "sonner";
 import { clusterImages } from '@/lib/ai';
@@ -15,6 +15,8 @@ import ProcessingView, { ProcessingFile } from '@/components/ProcessingView';
 
 const IndexPage = () => {
   const [clusters, setClusters] = useState<ClusterType[]>([]);
+  const [filteredClusters, setFilteredClusters] = useState<ClusterType[]>([]);
+  const [activeFilters, setActiveFilters] = useState<{ tags: string[] }>({ tags: [] });
   const [isLoading, setIsLoading] = useState(false);
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -41,6 +43,29 @@ const IndexPage = () => {
     };
   }, [clusters]);
 
+  const allTags = useMemo(() => {
+    const tags = new Set<string>();
+    clusters.forEach(cluster => {
+      cluster.tags?.forEach(tag => tags.add(tag));
+    });
+    return Array.from(tags);
+  }, [clusters]);
+
+  useEffect(() => {
+    if (activeFilters.tags.length === 0) {
+      setFilteredClusters(clusters);
+      return;
+    }
+    const lowerCaseFilterTags = activeFilters.tags.map(t => t.toLowerCase());
+
+    const newFilteredClusters = clusters.filter(cluster => {
+      if (!cluster.tags || cluster.tags.length === 0) return false;
+      return cluster.tags.some(clusterTag => lowerCaseFilterTags.includes(clusterTag.toLowerCase()));
+    });
+
+    setFilteredClusters(newFilteredClusters);
+  }, [clusters, activeFilters]);
+
   const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
@@ -57,6 +82,7 @@ const IndexPage = () => {
 
       setProcessingFiles(newFiles);
       setClusters([]);
+      setActiveFilters({ tags: [] }); // Reset filters on new upload
       setIsLoading(true);
       setIsClustering(false);
 
@@ -112,6 +138,10 @@ const IndexPage = () => {
     toast.info("All clusters have been cleared.");
   };
 
+  const handleApplyFilters = (filters: { tags: string[] }) => {
+    setActiveFilters(filters);
+  };
+
   const isInitialView = clusters.length === 0 && !isLoading;
 
   return (
@@ -146,7 +176,19 @@ const IndexPage = () => {
           </div>
         ) : (
           <div className="flex-1 w-full animate-fade-in">
-            <ClusterGrid clusters={clusters} onViewCluster={handleViewCluster} />
+            {clusters.length > 0 && filteredClusters.length === 0 && activeFilters.tags.length > 0 ? (
+                 <div className="text-center py-16 flex flex-col items-center">
+                    <Frown className="h-16 w-16 text-muted-foreground/50 mb-4" />
+                    <h3 className="text-xl font-semibold text-foreground">No clusters match your filters</h3>
+                    <p className="text-muted-foreground mt-2 max-w-sm">Try adjusting or clearing your filters to see more results.</p>
+                    <Button variant="outline" onClick={() => setIsFilterSheetOpen(true)} className="mt-4">
+                        Adjust Filters
+                    </Button>
+                </div>
+            ) : (
+                <ClusterGrid clusters={filteredClusters} onViewCluster={handleViewCluster} />
+            )}
+            
             {clusters.length > 0 && !isLoading && (
                <div className="mt-8 text-center">
                 <Button variant="outline" onClick={handleClearClusters} className="text-destructive hover:text-destructive/80 hover:border-destructive/50">
@@ -164,7 +206,13 @@ const IndexPage = () => {
         MatchLens © {new Date().getFullYear()} - Created with Lovable.
       </footer>
       {!isInitialView && (
-         <FilterSheet isOpen={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen} />
+         <FilterSheet 
+           isOpen={isFilterSheetOpen} 
+           onOpenChange={setIsFilterSheetOpen}
+           allTags={allTags}
+           activeFilters={activeFilters}
+           onApplyFilters={handleApplyFilters}
+         />
       )}
     </div>
   );

@@ -28,7 +28,7 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster }) => 
   return (
     <div 
       onClick={handleCardClick}
-      className="relative bg-card/80 backdrop-blur-sm rounded-2xl shadow-soft overflow-hidden transform transition-all hover:shadow-soft-lg hover:-translate-y-1 animate-scale-in flex flex-col cursor-pointer group"
+      className="relative bg-card/60 backdrop-blur-md rounded-2xl shadow-soft overflow-hidden transform transition-all hover:shadow-soft-lg hover:-translate-y-1 animate-scale-in flex flex-col cursor-pointer group"
     >
       <div className="absolute top-3 right-3 z-10">
         <DropdownMenu>
