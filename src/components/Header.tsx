@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Upload, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -29,12 +30,12 @@ const Header: React.FC<HeaderProps> = ({
       isScrolled ? "border-b border-border/60 bg-background/90 backdrop-blur-sm shadow-sm" : "border-b border-transparent"
     )}>
       <div className="container mx-auto flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <img src="/logo.svg" alt="MatchLens Logo" className="h-8 w-8" />
-          <h1 className="text-xl font-bold text-foreground">
+        <Link to="/" className="flex items-center space-x-3 group">
+          <img src="/logo.svg" alt="MatchLens Logo" className="h-8 w-8 transition-transform group-hover:scale-110" />
+          <h1 className="text-xl font-bold text-foreground transition-colors group-hover:text-primary">
             MatchLens
           </h1>
-        </div>
+        </Link>
         <div className="flex items-center space-x-2 sm:space-x-4">
           {showFilterButton && onFilterButtonClick && user && (
             <Button variant="outline" onClick={onFilterButtonClick} className="hidden sm:inline-flex">

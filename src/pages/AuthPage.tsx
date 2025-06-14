@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,12 +7,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import AiLoader from "@/components/AiLoader";
 import { useAuth } from "@/contexts/AuthProvider";
+import { ArrowLeft } from "lucide-react";
 
 const signUpSchema = z.object({
   firstName: z.string().min(1, { message: "First name is required" }),
@@ -90,14 +92,25 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background p-4">
+    <div className="flex items-center justify-center min-h-screen bg-background p-4 relative overflow-hidden">
+      <div className="absolute inset-0 -z-10 h-full w-full bg-background bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px]">
+        <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-primary/10 opacity-50 blur-[100px]" />
+      </div>
+      <div className="absolute top-6 left-6 sm:top-8 sm:left-8">
+        <Link to="/" className="flex items-center space-x-3 group">
+          <img src="/logo.svg" alt="MatchLens Logo" className="h-8 w-8 transition-transform group-hover:scale-110" />
+          <h1 className="text-xl font-bold text-foreground transition-colors group-hover:text-primary">
+            MatchLens
+          </h1>
+        </Link>
+      </div>
       <Tabs defaultValue="sign-in" className="w-full max-w-md">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="sign-in">Sign In</TabsTrigger>
           <TabsTrigger value="sign-up">Sign Up</TabsTrigger>
         </TabsList>
         <TabsContent value="sign-in">
-          <Card>
+          <Card className="border-dashed">
             <CardHeader>
               <CardTitle>Sign In</CardTitle>
               <CardDescription>
@@ -124,8 +137,12 @@ export default function AuthPage() {
           </Card>
         </TabsContent>
         <TabsContent value="sign-up">
-          <Card>
-            <CardHeader>
+          <Card className="border-dashed relative">
+            <CardHeader className="items-center text-center">
+              <Button variant="ghost" size="icon" className="absolute top-6 left-6" onClick={() => navigate(-1)}>
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Back</span>
+              </Button>
               <CardTitle>Sign Up</CardTitle>
               <CardDescription>
                 Create an account to start organizing your images.
