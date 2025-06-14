@@ -198,10 +198,9 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
             return acc;
         }, {} as Record<string, number>);
 
-        const topTags = Object.entries(tagFrequenciesForCluster)
-            .sort(([, a], [, b]) => b - a)
-            .slice(0, 5)
-            .map(([tag]) => tag);
+        const topTags = Object.keys(tagFrequenciesForCluster)
+            .sort((a, b) => tagFrequenciesForCluster[b] - tagFrequenciesForCluster[a])
+            .slice(0, 5);
 
         finalClusters.push({
             id: `cluster-tag-${clusterTag}-${Date.now()}`,
