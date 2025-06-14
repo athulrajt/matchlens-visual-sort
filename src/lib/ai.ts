@@ -24,7 +24,7 @@ const getExtractor = async () => {
 const getPaletteFromImage = (imageUrl: string, colorCount = 5): Promise<string[]> => {
     return new Promise((resolve, reject) => {
         const img = new Image();
-        img.crossOrigin = 'Anonymous';
+        // img.crossOrigin = 'Anonymous'; // This is not needed for Object URLs and can cause silent errors.
         img.onload = () => {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -68,6 +68,8 @@ const getPaletteFromImage = (imageUrl: string, colorCount = 5): Promise<string[]
  * @returns A promise that resolves to an array of ClusterType objects.
  */
 export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
+    if (files.length === 0) return [];
+    
     const featureExtractor = await getExtractor();
 
     const imageInfos: ImageType[] = files.map((file, i) => ({
@@ -76,27 +78,43 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
         alt: file.name
     }));
 
-    // Handle cases with too few images to cluster
-    if (files.length <= 1) {
-        if (files.length === 0) return [];
-        return [{
-            id: `cluster-single-${imageInfos[0].id}`,
-            title: 'Single Image',
-            description: 'Only one image was uploaded.',
-            images: imageInfos,
-            palette: await getPaletteFromImage(imageInfos[0].url),
-        }];
+    // 1. Extract embeddings for all images in parallel, handling errors
+    const embeddingResults = await Promise.all(
+        imageInfos.map(image =>
+            featureExtractor(image.url, { pooling: 'mean', normalize: true })
+                .then(res => ({
+                    embedding: Array.from(res.data as Float32Array),
+                    info: image
+                }))
+                .catch(err => {
+                    console.error(`Failed to process image ${image.alt}:`, err);
+                    return null;
+                })
+        )
+    );
+
+    const validResults = embeddingResults.filter(Boolean) as { embedding: number[], info: ImageType }[];
+
+    // If not enough images were processed successfully for clustering
+    if (validResults.length < 2) {
+        if (validResults.length === 1) {
+            const { info } = validResults[0];
+            return [{
+                id: `cluster-single-${info.id}`,
+                title: 'Single Image',
+                description: 'Only one image was processed successfully.',
+                images: [info],
+                palette: await getPaletteFromImage(info.url).catch(() => []),
+            }];
+        }
+        return [];
     }
 
-    // 1. Extract embeddings for all images
-    const embeddings: number[][] = [];
-    for (const image of imageInfos) {
-        const imageEmbeddings = await featureExtractor(image.url, { pooling: 'mean', normalize: true });
-        embeddings.push(Array.from(imageEmbeddings.data as Float32Array));
-    }
+    const embeddings = validResults.map(r => r.embedding);
+    const validImageInfos = validResults.map(r => r.info);
 
     // 2. Determine the optimal number of clusters (k) and run k-means
-    const k = Math.min(Math.max(2, Math.ceil(files.length / 4)), 10, files.length);
+    const k = Math.min(Math.max(2, Math.ceil(validImageInfos.length / 4)), 10, validImageInfos.length);
     const result = kmeans(embeddings, k, { initialization: 'kmeans++' });
     const assignments = result.clusters;
 
@@ -106,23 +124,25 @@ export const clusterImages = async (files: File[]): Promise<ClusterType[]> => {
         if (!tempClusters[clusterIndex]) {
             tempClusters[clusterIndex] = [];
         }
-        tempClusters[clusterIndex].push(imageInfos[imageIndex]);
+        tempClusters[clusterIndex].push(validImageInfos[imageIndex]);
     });
 
-    // 4. Format clusters and generate palettes
-    const finalClusters: ClusterType[] = [];
-    for (const clusterIndex in tempClusters) {
-        const images = tempClusters[clusterIndex];
-        if (images.length > 0) {
-            finalClusters.push({
-                id: `cluster-${clusterIndex}-${Date.now()}`,
-                title: `Smart Cluster ${finalClusters.length + 1}`,
+    // 4. Format clusters and generate palettes in parallel
+    const finalClusters = await Promise.all(
+        Object.values(tempClusters).map(async (images, index) => {
+            const palette = await getPaletteFromImage(images[0].url).catch(err => {
+                console.error(`Failed to generate palette for cluster ${index + 1}:`, err);
+                return []; // Return empty palette on error
+            });
+            return {
+                id: `cluster-${index}-${Date.now()}`,
+                title: `Smart Cluster ${index + 1}`,
                 description: `A collection of ${images.length} visually similar images.`,
                 images: images,
-                palette: await getPaletteFromImage(images[0].url)
-            });
-        }
-    }
+                palette: palette
+            };
+        })
+    );
     
-    return finalClusters;
+    return finalClusters.filter(Boolean) as ClusterType[];
 };
