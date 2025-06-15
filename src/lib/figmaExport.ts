@@ -68,7 +68,17 @@ export const exportImagesToFigma = async (images: ImageType[]) => {
     
     let description = "Could not copy images. Your browser might not support this feature or there was a network issue.";
     if (error instanceof DOMException && error.name === 'NotAllowedError') {
-      description = "Clipboard access was denied. Please grant permission to use this feature.";
+      description = "Your browser's security settings blocked this action. If permissions are already granted, this might be a security restriction of the environment.";
+      
+      // Log the permission state for better debugging
+      if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: 'clipboard-write' as PermissionName })
+          .then(status => {
+            console.log('Clipboard permission state at time of error:', status.state);
+          }).catch(err => {
+            console.warn('Could not query clipboard permission state at time of error:', err);
+          });
+      }
     } else if (error instanceof Error && error.message.includes("Could not fetch")) {
       description = "None of the images could be downloaded. Please check your network connection.";
     }
