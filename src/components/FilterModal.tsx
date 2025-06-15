@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
@@ -112,11 +111,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
     onOpenChange(false);
   };
   
-  const handleClearSelection = () => {
-    setSelectedTags(new Set());
-    setSelectedColors(new Set());
-  };
-  
   const handleClearAndReload = () => {
     onClear();
   };
@@ -142,7 +136,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full sm:w-[420px] max-w-[calc(100vw-2rem)] fixed top-24 right-4 sm:right-8 left-auto m-0 !translate-x-0 !translate-y-0 rounded-2xl shadow-lg">
+      <DialogContent className="w-full sm:w-[420px] max-w-[calc(100vw-2rem)] fixed top-24 right-4 sm:right-8 left-auto m-0 !translate-x-0 !translate-y-0 rounded-2xl shadow-lg flex flex-col max-h-[calc(100dvh-8rem)]">
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <SlidersHorizontal className="h-5 w-5 text-primary mr-2" />
@@ -153,7 +147,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
           </DialogDescription>
         </DialogHeader>
         
-        <div className="py-4 space-y-6">
+        <div className="py-4 space-y-6 overflow-y-auto">
           {filterGroups.map((group) => (
             <div key={group.title}>
               <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center">
@@ -192,12 +186,9 @@ const FilterModal: React.FC<FilterModalProps> = ({
           ))}
         </div>
 
-        <DialogFooter className="mt-2 flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-            <Button variant="ghost" className="w-full sm:w-auto" onClick={handleClearAndReload}>Clear Filters & Refresh</Button>
-            <div className='flex gap-2 w-full sm:w-auto'>
-                <Button variant="outline" className="w-full sm:w-auto" onClick={handleClearSelection}>Clear Selection</Button>
-                <Button className="w-full sm:w-auto" onClick={handleApply}>Apply Filters</Button>
-            </div>
+        <DialogFooter className="mt-auto border-t border-border pt-4">
+          <Button variant="ghost" onClick={handleClearAndReload}>Clear Filters</Button>
+          <Button onClick={handleApply}>Apply Filters</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
