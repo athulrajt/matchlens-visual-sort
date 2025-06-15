@@ -1,9 +1,11 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 import { ClusterType } from '@/types';
 import { MoreHorizontal, Download, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface ClusterCardProps {
   cluster: ClusterType;
@@ -12,6 +14,7 @@ interface ClusterCardProps {
 }
 
 const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster, onDeleteCluster }) => {
+  const [isDragOver, setIsDragOver] = useState(false);
   const images = cluster.images;
   const imageCount = images.length;
 
@@ -36,11 +39,61 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster, onDel
     toast.success(`Copied ${color} to clipboard!`);
   };
 
+  const handleDragStart = (e: React.DragEvent) => {
+    e.stopPropagation();
+    e.dataTransfer.setData("clusterId", cluster.id);
+    e.dataTransfer.effectAllowed = "move";
+  };
+  
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); 
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+  
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+  
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    const draggedClusterId = e.dataTransfer.getData("clusterId");
+    if (draggedClusterId && draggedClusterId !== cluster.id) {
+        const event = new CustomEvent('cluster-merge-drop', { 
+            detail: { draggedClusterId, targetClusterId: cluster.id } 
+        });
+        window.dispatchEvent(event);
+    }
+  };
+
   return (
     <div 
       onClick={handleCardClick}
-      className="relative bg-card/60 backdrop-blur-md rounded-2xl shadow-soft overflow-hidden transform transition-all hover:shadow-soft-lg hover:-translate-y-1 animate-scale-in flex flex-col cursor-pointer group"
+      draggable="true"
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      className={cn(
+        "relative bg-card/60 backdrop-blur-md rounded-2xl shadow-soft overflow-hidden transform transition-all hover:shadow-soft-lg hover:-translate-y-1 animate-scale-in flex flex-col cursor-pointer group",
+        isDragOver && "outline-dashed outline-2 outline-primary outline-offset-2"
+      )}
     >
+      {isDragOver && (
+        <div className="absolute inset-0 bg-primary/20 backdrop-blur-sm rounded-2xl flex items-center justify-center pointer-events-none z-20 transition-all duration-300">
+          <p className="text-primary-foreground font-semibold bg-primary/80 px-4 py-2 rounded-full shadow-lg">
+            Merge with "{cluster.title}"
+          </p>
+        </div>
+      )}
       <div className="absolute top-3 right-3 z-10">
         <DropdownMenu>
           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
