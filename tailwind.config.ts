@@ -149,7 +149,7 @@ export default {
         'gradient-pan': 'gradient-pan 6s ease-in-out infinite',
 			},
       backgroundImage: {
-        'processing-gradient': 'linear-gradient(to right, hsl(var(--red)), hsl(var(--orange)), hsl(var(--primary)), hsl(262 80% 58%))',
+        'processing-gradient': 'linear-gradient(to right, hsl(var(--orange)), hsl(var(--primary)), hsl(var(--orange)))',
       },
       boxShadow: {
         'soft': '0 6px 24px rgba(0, 0, 0, 0.07)',

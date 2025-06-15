@@ -142,7 +142,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full sm:w-[400px] max-w-[calc(100vw-2rem)] fixed top-24 right-4 sm:right-8 left-auto m-0 !translate-x-0 !translate-y-0 rounded-2xl shadow-lg">
+      <DialogContent className="w-full sm:w-[420px] max-w-[calc(100vw-2rem)] fixed top-24 right-4 sm:right-8 left-auto m-0 !translate-x-0 !translate-y-0 rounded-2xl shadow-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <SlidersHorizontal className="h-5 w-5 text-primary mr-2" />
@@ -182,7 +182,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                       onClick={() => group.onToggle(option)}
                       className={cn(baseButtonClasses, buttonClasses)}
                     >
-                      {isSelected && <Check className="h-4 w-4" />}
+                      <Check className={cn("h-4 w-4 transition-opacity", isSelected ? "opacity-100" : "opacity-0")} />
                       {option}
                     </button>
                   )
