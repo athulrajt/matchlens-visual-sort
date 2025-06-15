@@ -30,6 +30,12 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster, onDel
     onDeleteCluster(cluster.id);
   };
 
+  const handleCopyColor = (e: React.MouseEvent, color: string) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(color);
+    toast.success(`Copied ${color} to clipboard!`);
+  };
+
   return (
     <div 
       onClick={handleCardClick}
@@ -104,9 +110,10 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster, onDel
             {cluster.palette.map((color, index) => (
               <div
                 key={index}
-                className="h-6 w-6 rounded-full border-2 border-white/50 shadow-sm"
+                className="h-6 w-6 rounded-full border-2 border-white/50 shadow-sm cursor-pointer transition-transform hover:scale-110"
                 style={{ backgroundColor: color }}
-                title={color}
+                title={`Copy ${color}`}
+                onClick={(e) => handleCopyColor(e, color)}
               ></div>
             ))}
           </div>

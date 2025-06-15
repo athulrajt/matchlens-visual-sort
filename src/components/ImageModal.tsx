@@ -1,4 +1,3 @@
-
 import React, { useEffect, useCallback, useState } from 'react';
 import { ImageType, ClusterType } from '@/types';
 import { ArrowLeft, ArrowRight, X, ArrowRightLeft, Loader2 } from 'lucide-react';
@@ -182,17 +181,17 @@ const ImageModal: React.FC<ImageModalProps> = ({
 
         {/* --- Actions Bar --- */}
         {onMoveImage && allClusters && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm rounded-full p-1 sm:p-2 flex items-center gap-2 z-50 animate-fade-in">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-orange to-primary text-primary-foreground rounded-full flex items-center justify-center p-1 z-50 animate-fade-in">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button 
                   variant="ghost" 
-                  className="text-white/80 hover:bg-white/10 hover:text-white h-10 px-3 sm:h-auto sm:px-4" 
+                  className="text-white/90 bg-transparent hover:bg-white/20 hover:text-white rounded-full h-10 px-4 [&_svg]:size-5" 
                   disabled={isMovingImage}
                   aria-label="Move image to another collection"
                 >
-                  {isMovingImage ? <Loader2 className="h-5 w-5 animate-spin" /> : <ArrowRightLeft className="h-5 w-5" />}
-                  <span className="ml-2 hidden sm:inline">Move</span>
+                  {isMovingImage ? <Loader2 className="animate-spin" /> : <ArrowRightLeft />}
+                  <span className="hidden sm:inline">Move</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent onClick={(e) => e.stopPropagation()} side="top" align="center" className="shadow-lg">
