@@ -105,7 +105,7 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster, onDel
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       className={cn(
-        "relative bg-card/60 backdrop-blur-md rounded-2xl shadow-soft overflow-hidden transform transition-all hover:shadow-soft-lg hover:-translate-y-1 animate-scale-in flex flex-col cursor-pointer group h-[420px]",
+        "relative bg-card/60 backdrop-blur-md rounded-2xl shadow-soft overflow-hidden transform transition-all hover:shadow-soft-lg hover:-translate-y-1 animate-scale-in flex flex-col cursor-pointer group",
         isDragOver && "outline-dashed outline-2 outline-primary outline-offset-2"
       )}
     >
@@ -167,8 +167,8 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster, onDel
           )}
         </div>
         
-        {cluster.tags && cluster.tags.length > 0 && (
-          <div className="mb-4">
+        <div className="mb-4 h-6 overflow-hidden">
+          {cluster.tags && cluster.tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {cluster.tags.slice(0, 3).map((tag) => (
                 <span key={tag} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
@@ -176,8 +176,8 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster, onDel
                 </span>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="mt-auto pt-4 flex items-end justify-between">
           <ClusterColorPalette palette={cluster.palette} onColorCopy={handleCopyColor} />
