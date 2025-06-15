@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '@/components/Header';
@@ -13,6 +12,8 @@ import { useImageUploader } from '@/hooks/useImageUploader';
 import InitialView from '@/components/InitialView';
 import Dashboard from '@/components/Dashboard';
 import { AuthModal } from '@/components/AuthModal';
+import { useIsMobile } from '@/hooks/use-mobile';
+import FloatingUploadButton from '@/components/FloatingUploadButton';
 
 const IndexPage = () => {
   const { user } = useAuth();
@@ -32,6 +33,7 @@ const IndexPage = () => {
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 10);
@@ -122,6 +124,9 @@ const IndexPage = () => {
         onOpenChange={setIsAuthModalOpen}
         onSuccess={() => setIsAuthModalOpen(false)}
       />
+      {user && !isInitialView && isMobile && (
+        <FloatingUploadButton isScrolled={isScrolled} onClick={handleUploadClick} />
+      )}
     </div>
   );
 };

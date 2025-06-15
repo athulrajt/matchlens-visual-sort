@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Upload, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -46,9 +45,9 @@ const Header: React.FC<HeaderProps> = ({
             </Button>
           )}
           {showTopUploadButton && onTopUploadClick && user && (
-            <Button variant="default" onClick={onTopUploadClick} className="bg-gradient-to-r from-orange to-primary text-primary-foreground shadow-lg">
-              <Upload className="mr-0 sm:mr-2 h-4 w-4" /> {/* Hide text on very small screens */}
-              <span className="hidden sm:inline">Upload More</span>
+            <Button variant="default" onClick={onTopUploadClick} className="hidden sm:inline-flex bg-gradient-to-r from-orange to-primary text-primary-foreground shadow-lg">
+              <Upload className="mr-2 h-4 w-4" />
+              <span>Upload More</span>
             </Button>
           )}
           {user ? (
