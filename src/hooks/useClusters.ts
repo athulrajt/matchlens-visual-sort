@@ -1,11 +1,10 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from "sonner";
 import { v4 as uuidv4 } from 'uuid';
-import { ClusterType } from '@/types';
+import { ClusterType, ImageType } from '@/types';
 import { clusterImages } from '@/lib/ai';
 
 export const useClusters = () => {
@@ -33,7 +32,7 @@ export const useClusters = () => {
                 ...c,
                 images: c.images.map(img => {
                     const publicUrlResult = supabase.storage.from('cluster-images').getPublicUrl(img.image_path);
-                    return { id: img.id, alt: img.alt, url: publicUrlResult.data.publicUrl };
+                    return { id: img.id, alt: img.alt, url: publicUrlResult.data.publicUrl, image_path: img.image_path };
                 })
             }));
         },
@@ -221,6 +220,83 @@ export const useClusters = () => {
         onError: (error: Error) => toast.error("Failed to clear collections", { description: error.message })
     });
     
+    const moveImageToClusterMutation = useMutation({
+        mutationFn: async ({ image, newClusterId }: { image: ImageType; newClusterId: string }) => {
+            if (!user || !image.image_path) {
+                throw new Error("User not authenticated or image path is missing.");
+            }
+
+            const oldPath = image.image_path;
+            const pathParts = oldPath.split('/');
+            const filename = pathParts[pathParts.length - 1];
+            const newPath = `${user.id}/${newClusterId}/${filename}`;
+
+            // 1. Move file in storage
+            const { error: moveError } = await supabase.storage.from('cluster-images').move(oldPath, newPath);
+            if (moveError) {
+                throw new Error(`Failed to move image in storage: ${moveError.message}`);
+            }
+
+            // 2. Update database
+            const { error: dbError } = await supabase.from('images').update({
+                cluster_id: newClusterId,
+                image_path: newPath,
+            }).eq('id', image.id);
+
+            if (dbError) {
+                // Attempt to rollback storage move
+                await supabase.storage.from('cluster-images').move(newPath, oldPath);
+                throw new Error(`Failed to update image record: ${dbError.message}`);
+            }
+
+            return { image, newClusterId };
+        },
+        onSuccess: () => {
+            toast.success("Image moved successfully.");
+            queryClient.invalidateQueries({ queryKey: ['clusters', user?.id] });
+        },
+        onError: (error: Error) => {
+            toast.error("Failed to move image", { description: error.message });
+        },
+    });
+
+    const moveImage = (image: ImageType, newClusterId: string, onSuccessCallback?: () => void) => {
+        const currentCluster = clusters.find(c => c.images.some(i => i.id === image.id));
+        if (currentCluster?.id === newClusterId) {
+            return;
+        }
+
+        if (user) {
+            moveImageToClusterMutation.mutate({ image, newClusterId }, {
+                onSuccess: () => {
+                    onSuccessCallback?.();
+                }
+            });
+        } else {
+            // Guest logic
+            const oldClusterIndex = clusters.findIndex(c => c.images.some(i => i.id === image.id));
+            const newClusterIndex = clusters.findIndex(c => c.id === newClusterId);
+
+            if (oldClusterIndex > -1 && newClusterIndex > -1) {
+                const updatedClusters = JSON.parse(JSON.stringify(clusters));
+                
+                const oldCluster = updatedClusters[oldClusterIndex];
+                const imageToMoveIndex = oldCluster.images.findIndex((i: ImageType) => i.id === image.id);
+                const [imageToMove] = oldCluster.images.splice(imageToMoveIndex, 1);
+
+                const newCluster = updatedClusters[newClusterIndex];
+                newCluster.images.push(imageToMove);
+                
+                localStorage.setItem('guestClusters', JSON.stringify(updatedClusters));
+                setClusters(updatedClusters);
+                toast.success("Image moved successfully.");
+                onSuccessCallback?.();
+            } else {
+                toast.error("Could not move image locally.");
+            }
+        }
+    };
+
     const deleteCluster = (clusterId: string) => {
         if (user) {
             deleteClusterMutation.mutate(clusterId);
@@ -253,5 +329,7 @@ export const useClusters = () => {
         clearClusters, 
         clearClustersMutation,
         createClustersMutation,
+        moveImage,
+        moveImageToClusterMutation
     };
 };

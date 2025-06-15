@@ -6,6 +6,7 @@ import { ArrowLeft, Download } from 'lucide-react';
 import Header from '@/components/Header';
 import { toast } from 'sonner';
 import ImageModal from '@/components/ImageModal';
+import { useClusters } from '@/hooks/useClusters';
 
 const ClusterDetailPage: React.FC = () => {
   const location = useLocation();
@@ -13,8 +14,12 @@ const ClusterDetailPage: React.FC = () => {
   const { clusterId } = useParams<{ clusterId?: string }>();
   const [cluster, setCluster] = useState<ClusterType | undefined>(location.state?.cluster);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const { clusters: allClusters, moveImage, moveImageToClusterMutation } = useClusters();
 
   useEffect(() => {
+    if (cluster && !location.state?.cluster) { // Only scroll if not coming from navigation state
+        return;
+    }
     if (cluster) {
         window.scrollTo(0, 0);
         return;
@@ -39,7 +44,21 @@ const ClusterDetailPage: React.FC = () => {
     
     toast.error("Cluster data not found. Returning to the main page.");
     navigate('/');
-  }, [cluster, clusterId, navigate]);
+  }, [cluster, clusterId, navigate, location.state?.cluster]);
+
+  useEffect(() => {
+    // Update local cluster state when allClusters from hook changes (e.g., after an image move)
+    if (clusterId && allClusters.length > 0) {
+        const updatedCluster = allClusters.find(c => c.id === clusterId);
+        if (updatedCluster) {
+            setCluster(updatedCluster);
+        } else {
+            // Cluster might have been deleted, navigate away.
+            toast.error("The collection you were viewing no longer exists.");
+            navigate('/');
+        }
+    }
+  }, [allClusters, clusterId, navigate]);
 
   if (!cluster) {
     return (
@@ -111,13 +130,17 @@ const ClusterDetailPage: React.FC = () => {
                 ))}
             </div>
         </main>
-        {selectedImageIndex !== null && (
+        {selectedImageIndex !== null && cluster.images[selectedImageIndex] && (
           <ImageModal 
             images={cluster.images}
             currentIndex={selectedImageIndex}
             onClose={handleCloseModal}
             onNext={handleNextImage}
             onPrev={handlePrevImage}
+            allClusters={allClusters}
+            currentClusterId={cluster.id}
+            onMoveImage={moveImage}
+            isMovingImage={moveImageToClusterMutation.isPending}
           />
         )}
     </div>

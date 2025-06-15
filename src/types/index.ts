@@ -3,6 +3,7 @@ export interface ImageType {
   id: string;
   url: string;
   alt: string;
+  image_path?: string; // For Supabase Storage path
 }
 
 export interface ClusterType {
