@@ -187,7 +187,7 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster, onDel
             title="Share on Pinterest"
             className="transition-transform hover:scale-110"
           >
-            <img src="/Pinterest-logo.png?v=2" alt="Share on Pinterest" className="h-8 w-8 object-contain" />
+            <img src="/Pinterest-logo.png?v=2" alt="Share on Pinterest" className="h-6 w-6 object-contain" />
           </button>
         </div>
       </div>
