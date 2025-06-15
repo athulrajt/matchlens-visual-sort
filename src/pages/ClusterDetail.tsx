@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ClusterType, ImageType } from '@/types';
@@ -8,6 +7,7 @@ import Header from '@/components/Header';
 import { toast } from 'sonner';
 import ImageModal from '@/components/ImageModal';
 import { useClusters } from '@/hooks/useClusters';
+import { exportImagesToFigma } from '@/lib/figmaExport';
 
 const ClusterDetailPage: React.FC = () => {
   const location = useLocation();
@@ -69,35 +69,12 @@ const ClusterDetailPage: React.FC = () => {
     );
   }
 
-  const handleExportToFigma = async () => {
-    if (!cluster || cluster.images.length === 0) {
+  const handleExportToFigma = () => {
+    if (!cluster) {
       toast.info("This collection has no images to export.");
       return;
     }
-    toast.info(`Preparing ${cluster.images.length} images for Figma...`);
-
-    try {
-      const clipboardItems = await Promise.all(
-        cluster.images.map(async (image) => {
-          const response = await fetch(image.url);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch image: ${response.statusText}`);
-          }
-          const blob = await response.blob();
-          return new ClipboardItem({ [blob.type]: blob });
-        })
-      );
-
-      await navigator.clipboard.write(clipboardItems);
-      toast.success("Images copied!", {
-        description: `You can now paste ${cluster.images.length} images into Figma.`,
-      });
-    } catch (error) {
-      console.error("Failed to copy images to clipboard:", error);
-      toast.error("Failed to export to Figma", {
-        description: "Could not copy images. Your browser might not support this feature or permission was denied.",
-      });
-    }
+    exportImagesToFigma(cluster.images);
   };
 
   const handleImageClick = (index: number) => {

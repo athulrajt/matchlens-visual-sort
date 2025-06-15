@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ClusterType } from '@/types';
 import { MoreHorizontal, Copy, Trash2 } from 'lucide-react';
@@ -6,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { exportImagesToFigma } from '@/lib/figmaExport';
 
 interface ClusterCardProps {
   cluster: ClusterType;
@@ -22,36 +22,9 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster, onDel
     onViewCluster(cluster);
   };
 
-  const handleExportToFigma = async (e: React.MouseEvent) => {
+  const handleExportToFigma = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (cluster.images.length === 0) {
-      toast.info("This collection has no images to export.");
-      return;
-    }
-    toast.info(`Preparing ${cluster.images.length} images for Figma...`);
-
-    try {
-      const clipboardItems = await Promise.all(
-        cluster.images.map(async (image) => {
-          const response = await fetch(image.url);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch image: ${response.statusText}`);
-          }
-          const blob = await response.blob();
-          return new ClipboardItem({ [blob.type]: blob });
-        })
-      );
-
-      await navigator.clipboard.write(clipboardItems);
-      toast.success("Images copied!", {
-        description: `You can now paste ${cluster.images.length} images into Figma.`,
-      });
-    } catch (error) {
-      console.error("Failed to copy images to clipboard:", error);
-      toast.error("Failed to export to Figma", {
-        description: "Could not copy images. Your browser might not support this feature or permission was denied.",
-      });
-    }
+    exportImagesToFigma(cluster.images);
   };
 
   const handleDelete = (e: React.MouseEvent) => {
