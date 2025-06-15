@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '@/components/Header';
@@ -24,7 +23,7 @@ const IndexPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { clusters, isLoadingClusters, createClusters, deleteCluster, clearClusters, clearClustersMutation } = useClusters();
+  const { clusters, isLoadingClusters, createClusters, deleteCluster, clearClusters, clearClustersMutation, mergeClusters, mergeClustersMutation } = useClusters();
   
   const [activeFilters, setActiveFilters] = useState<{ tags: string[]; colors: string[] }>({ tags: [], colors: [] });
   const [searchTerm, setSearchTerm] = useState('');
@@ -136,15 +135,13 @@ const IndexPage = () => {
   const handleConfirmMerge = (newName: string) => {
     if (!mergingClustersInfo) return;
 
-    console.log('Merging clusters:', mergingClustersInfo.c1.title, '&', mergingClustersInfo.c2.title, 'into new cluster:', newName);
-    
-    // Here would be the actual logic to merge clusters.
-    // This would typically involve calling a mutation to create a new cluster 
-    // with combined data and then deleting the two old clusters.
-    // Since the data logic is not available for modification,
-    // we will simulate the action with a toast message.
-    
-    toast.success(`Merging "${mergingClustersInfo.c1.title}" and "${mergingClustersInfo.c2.title}" into "${newName}".`);
+    // The dragged cluster (c1) is merged into the target cluster (c2).
+    // Our hook expects `cluster1Id` to be the destination and `cluster2Id` to be the source.
+    mergeClusters({
+      cluster1Id: mergingClustersInfo.c2.id,
+      cluster2Id: mergingClustersInfo.c1.id,
+      newName: newName,
+    });
     
     setMergingClustersInfo(null);
   };
@@ -206,6 +203,7 @@ const IndexPage = () => {
           cluster1={mergingClustersInfo.c1}
           cluster2={mergingClustersInfo.c2}
           onConfirmMerge={handleConfirmMerge}
+          isMerging={mergeClustersMutation.isPending}
         />
       )}
 

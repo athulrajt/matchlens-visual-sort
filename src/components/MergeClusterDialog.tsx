@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ClusterType } from '@/types';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Loader2 } from 'lucide-react';
 
 interface MergeClusterDialogProps {
   isOpen: boolean;
@@ -20,15 +20,16 @@ interface MergeClusterDialogProps {
   cluster1: ClusterType | null;
   cluster2: ClusterType | null;
   onConfirmMerge: (newName: string) => void;
+  isMerging: boolean;
 }
 
-const MergeClusterDialog: React.FC<MergeClusterDialogProps> = ({ isOpen, onOpenChange, cluster1, cluster2, onConfirmMerge }) => {
+const MergeClusterDialog: React.FC<MergeClusterDialogProps> = ({ isOpen, onOpenChange, cluster1, cluster2, onConfirmMerge, isMerging }) => {
   const [newClusterName, setNewClusterName] = useState('');
 
   if (!cluster1 || !cluster2) return null;
 
   const handleConfirm = () => {
-    if (newClusterName.trim()) {
+    if (newClusterName.trim() && !isMerging) {
       onConfirmMerge(newClusterName.trim());
     }
   };
@@ -46,12 +47,12 @@ const MergeClusterDialog: React.FC<MergeClusterDialogProps> = ({ isOpen, onOpenC
         </DialogHeader>
         <div className="flex items-center justify-center gap-4 my-4">
             <div className="text-center p-4 border rounded-lg flex-1 truncate">
-                <p className="font-semibold truncate">{cluster1.title}</p>
+                <p className="font-semibold truncate" title={cluster1.title}>{cluster1.title}</p>
                 <p className="text-sm text-muted-foreground">{cluster1.images.length} images</p>
             </div>
             <ArrowRight className="h-6 w-6 text-muted-foreground flex-shrink-0" />
             <div className="text-center p-4 border rounded-lg flex-1 truncate">
-                <p className="font-semibold truncate">{cluster2.title}</p>
+                <p className="font-semibold truncate" title={cluster2.title}>{cluster2.title}</p>
                 <p className="text-sm text-muted-foreground">{cluster2.images.length} images</p>
             </div>
         </div>
@@ -64,12 +65,14 @@ const MergeClusterDialog: React.FC<MergeClusterDialogProps> = ({ isOpen, onOpenC
           onChange={(e) => setNewClusterName(e.target.value)}
           className="my-2"
           autoFocus
+          disabled={isMerging}
         />
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <Button variant="outline" disabled={isMerging}>Cancel</Button>
           </DialogClose>
-          <Button onClick={handleConfirm} disabled={!newClusterName.trim()}>
+          <Button onClick={handleConfirm} disabled={!newClusterName.trim() || isMerging}>
+            {isMerging && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Merge
           </Button>
         </DialogFooter>

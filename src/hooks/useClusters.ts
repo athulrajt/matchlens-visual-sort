@@ -321,6 +321,121 @@ export const useClusters = () => {
         }
     };
 
+    const mergeClustersMutation = useMutation({
+        mutationFn: async ({ cluster1Id, cluster2Id, newName }: { cluster1Id: string, cluster2Id: string, newName: string }) => {
+            if (!user) throw new Error("User not authenticated");
+
+            const cluster1 = clusters.find(c => c.id === cluster1Id);
+            const cluster2 = clusters.find(c => c.id === cluster2Id);
+
+            if (!cluster1 || !cluster2) throw new Error("One or both clusters not found");
+
+            // 1. Move images from cluster2 to cluster1
+            for (const image of cluster2.images) {
+                if (!image.image_path) continue;
+                
+                const oldPath = image.image_path;
+                const pathParts = oldPath.split('/');
+                const filename = pathParts[pathParts.length - 1];
+                const newPath = `${user.id}/${cluster1.id}/${filename}`;
+
+                const { error: moveError } = await supabase.storage.from('cluster-images').move(oldPath, newPath);
+                if (moveError) {
+                    console.error(`Failed to move image ${oldPath} to ${newPath}:`, moveError);
+                    throw new Error(`Failed to move an image. Aborting merge.`);
+                }
+
+                const { error: dbError } = await supabase.from('images').update({
+                    cluster_id: cluster1.id,
+                    image_path: newPath,
+                }).eq('id', image.id);
+
+                if (dbError) {
+                    console.error(`Failed to update image record for ${image.id}:`, dbError);
+                    await supabase.storage.from('cluster-images').move(newPath, oldPath);
+                    throw new Error(`Failed to update image record. Rolled back storage move.`);
+                }
+            }
+            
+            // 2. Combine metadata
+            const combinedTags = Array.from(new Set([...(cluster1.tags || []), ...(cluster2.tags || [])]));
+            const combinedPalette = Array.from(new Set([...(cluster1.palette || []), ...(cluster2.palette || [])])).slice(0, 5);
+            const combinedDescription = `Merged from "${cluster1.title}" and "${cluster2.title}".\n\n${cluster1.description || ''}\n\n${cluster2.description || ''}`.trim();
+
+            // 3. Update cluster1
+            const { error: updateError } = await supabase.from('clusters').update({
+                title: newName,
+                tags: combinedTags,
+                palette: combinedPalette,
+                description: combinedDescription,
+            }).eq('id', cluster1.id);
+
+            if (updateError) {
+                throw new Error(`Failed to update master cluster: ${updateError.message}`);
+            }
+
+            // 4. Delete cluster2
+            const { error: deleteError } = await supabase.from('clusters').delete().eq('id', cluster2.id);
+
+            if (deleteError) {
+                console.error(`Failed to delete old cluster ${cluster2.id}:`, deleteError.message);
+                toast.warning(`Failed to delete original cluster "${cluster2.title}". Please delete it manually.`);
+            }
+
+            return { mergedInto: newName, deleted: cluster2.title };
+        },
+        onSuccess: ({ mergedInto, deleted }) => {
+            toast.success(`Clusters merged into "${mergedInto}"`, {
+                description: `"${deleted}" was successfully merged and removed.`
+            });
+            queryClient.invalidateQueries({ queryKey: ['clusters', user?.id] });
+        },
+        onError: (error: Error) => {
+            toast.error("Failed to merge clusters", { description: error.message });
+        }
+    });
+
+    const mergeClusters = async ({ cluster1Id, cluster2Id, newName }: { cluster1Id: string, cluster2Id: string, newName: string }) => {
+        if (user) {
+            mergeClustersMutation.mutate({ cluster1Id, cluster2Id, newName });
+        } else {
+            // Guest logic
+            const currentClusters: ClusterType[] = JSON.parse(JSON.stringify(clusters));
+            const c1Index = currentClusters.findIndex(c => c.id === cluster1Id);
+            const c2Index = currentClusters.findIndex(c => c.id === cluster2Id);
+
+            if (c1Index === -1 || c2Index === -1) {
+                toast.error("Could not find clusters to merge.");
+                return;
+            }
+
+            const cluster1 = currentClusters[c1Index];
+            const cluster2 = currentClusters[c2Index];
+
+            const c1OriginalTitle = cluster1.title;
+            const c2OriginalTitle = cluster2.title;
+
+            // Combine images
+            cluster1.images.push(...cluster2.images);
+            
+            // Combine metadata
+            cluster1.title = newName;
+            cluster1.tags = Array.from(new Set([...(cluster1.tags || []), ...(cluster2.tags || [])]));
+            cluster1.palette = Array.from(new Set([...(cluster1.palette || []), ...(cluster2.palette || [])])).slice(0, 5);
+            cluster1.description = `Merged from "${c1OriginalTitle}" and "${c2OriginalTitle}".`;
+
+            // Remove cluster2
+            const updatedClusters = currentClusters.filter((c: ClusterType) => c.id !== cluster2Id);
+
+            localStorage.setItem('guestClusters', JSON.stringify(updatedClusters));
+            setClusters(updatedClusters);
+
+            toast.success(`Clusters merged into "${newName}"`, {
+                description: `"${c2OriginalTitle}" was successfully merged and removed.`
+            });
+        }
+    };
+
     return { 
         clusters, 
         isLoadingClusters, 
@@ -330,6 +445,8 @@ export const useClusters = () => {
         clearClustersMutation,
         createClustersMutation,
         moveImage,
-        moveImageToClusterMutation
+        moveImageToClusterMutation,
+        mergeClusters,
+        mergeClustersMutation,
     };
 };
