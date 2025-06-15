@@ -34,7 +34,7 @@ const Header: React.FC<HeaderProps> = ({
       <div className="container mx-auto flex items-center justify-between">
         <Link to="/" className="flex items-center space-x-3 group">
           <img src="/logo.svg" alt="MatchLens Logo" className="h-8 w-8 transition-transform group-hover:scale-110" />
-          <h1 className="text-xl font-bold leading-tight text-foreground transition-colors group-hover:text-primary">
+          <h1 className="text-xl font-bold leading-none sm:leading-tight text-foreground transition-colors group-hover:text-primary">
             MatchLens
           </h1>
         </Link>
