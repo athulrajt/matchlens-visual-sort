@@ -8,12 +8,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Tag, Palette, Check, SlidersHorizontal } from 'lucide-react';
+import { Tag, Palette, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const colorOptionStyles: { [key: string]: { base: string; selected: string } } = {
   "Warm Tones": {
-    base: "bg-orange-100 border-orange-200 text-orange-700 hover:bg-orange-200",
+    base: "bg-orange-200 border-orange-300 text-orange-800 hover:bg-orange-200/80",
     selected: "bg-orange-500 border-transparent text-white hover:bg-orange-500/90",
   },
   "Cool Tones": {
@@ -132,11 +132,11 @@ const FilterModal: React.FC<FilterModalProps> = ({
     },
   ], [allTags, selectedTags, selectedColors]);
   
-  const baseButtonClasses = "flex items-center justify-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+  const baseButtonClasses = "flex items-center justify-center rounded-full border px-4 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full sm:w-[420px] max-w-[calc(100vw-2rem)] fixed top-24 right-4 sm:right-8 left-auto m-0 !translate-x-0 !translate-y-0 rounded-2xl shadow-lg flex flex-col max-h-[calc(100dvh-8rem)]">
+      <DialogContent className="w-full sm:w-[420px] max-w-[calc(100vw-2rem)] fixed top-20 right-4 sm:right-8 left-auto m-0 !translate-x-0 !translate-y-0 rounded-2xl shadow-lg flex flex-col max-h-[calc(100dvh-8rem)]">
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <SlidersHorizontal className="h-5 w-5 text-primary mr-2" />
@@ -159,11 +159,12 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   const isSelected = group.selected.has(option);
                   let buttonClasses = "";
 
-                  if (group.title === "Dominant Color/Mood" && colorOptionStyles[option]) {
+                  if (group.title === "Tags") {
+                      buttonClasses = isSelected
+                          ? "bg-gray-700 text-white border-transparent hover:bg-gray-700/90"
+                          : "bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200";
+                  } else if (group.title === "Dominant Color/Mood" && colorOptionStyles[option]) {
                       buttonClasses = isSelected ? colorOptionStyles[option].selected : colorOptionStyles[option].base;
-                  } else if (group.title === "Tags") {
-                      const color = getTagColor(option);
-                      buttonClasses = isSelected ? color.selected : color.base;
                   } else {
                       buttonClasses = isSelected
                           ? "border-transparent bg-primary text-primary-foreground hover:bg-primary/80"
@@ -176,7 +177,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
                       onClick={() => group.onToggle(option)}
                       className={cn(baseButtonClasses, buttonClasses)}
                     >
-                      <Check className={cn("h-4 w-4 transition-opacity", isSelected ? "opacity-100" : "opacity-0")} />
                       {option}
                     </button>
                   )
