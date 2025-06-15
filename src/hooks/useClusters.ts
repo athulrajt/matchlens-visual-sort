@@ -68,48 +68,112 @@ export const useClusters = () => {
 
     const createClustersMutation = useMutation({
         mutationFn: async ({ files, nameToFileMap, onProgress, beforeClustering }: { files: File[], nameToFileMap: Map<string, File>, onProgress: any, beforeClustering: any }) => {
+            const newClustersFromAI = await clusterImages(files, onProgress, beforeClustering);
+            if (newClustersFromAI.length === 0) throw new Error("The AI could not create any clusters from your images.");
+
+            let createdCount = 0;
+            let updatedCount = 0;
+
             if (user) {
                 const { count, error: countError } = await supabase.from('clusters').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
                 if (countError) throw countError;
-                if (count !== null && count >= 15) throw new Error("You've reached the limit of 15 collections.");
 
-                const newClustersFromAI = await clusterImages(files, onProgress, beforeClustering);
-                if (newClustersFromAI.length === 0) throw new Error("The AI could not create any clusters from your images.");
+                toast.info(`Processing ${newClustersFromAI.length} potential collection(s)...`);
+                
+                for (const aiCluster of newClustersFromAI) {
+                    const existingCluster = clusters.find(c => c.title.toLowerCase() === aiCluster.title.toLowerCase());
 
-                toast.info(`Saving ${newClustersFromAI.length} new collection(s) to your account...`);
-                for (const cluster of newClustersFromAI) {
-                    const { data: newCluster, error: clusterError } = await supabase.from('clusters').insert({ user_id: user.id, title: cluster.title, description: cluster.description, tags: cluster.tags, palette: cluster.palette }).select().single();
-                    if (clusterError) throw clusterError;
+                    if (existingCluster) {
+                        updatedCount++;
+                        const newTags = Array.from(new Set([...(existingCluster.tags || []), ...(aiCluster.tags || [])]));
+                        await supabase.from('clusters').update({
+                            description: aiCluster.description,
+                            tags: newTags,
+                            palette: aiCluster.palette,
+                        }).eq('id', existingCluster.id);
 
-                    for (const image of cluster.images) {
-                        const file = nameToFileMap.get(image.alt);
-                        if (!file) continue;
-                        const imagePath = `${user.id}/${newCluster.id}/${uuidv4()}-${file.name}`;
-                        const { error: uploadError } = await supabase.storage.from('cluster-images').upload(imagePath, file);
-                        if (uploadError) { console.error('Failed to upload image', uploadError); continue; }
-                        await supabase.from('images').insert({ cluster_id: newCluster.id, user_id: user.id, image_path: imagePath, alt: file.name });
+                        for (const image of aiCluster.images) {
+                            const file = nameToFileMap.get(image.alt);
+                            if (!file) continue;
+                            const imagePath = `${user.id}/${existingCluster.id}/${uuidv4()}-${file.name}`;
+                            const { error: uploadError } = await supabase.storage.from('cluster-images').upload(imagePath, file);
+                            if (uploadError) { console.error('Failed to upload image', uploadError); continue; }
+                            await supabase.from('images').insert({ cluster_id: existingCluster.id, user_id: user.id, image_path: imagePath, alt: file.name });
+                        }
+                    } else {
+                        if (count !== null && (count + createdCount) >= 15) {
+                            toast.warning("Collection limit reached", { description: `Skipping creation of "${aiCluster.title}" as you've reached your limit of 15 collections.` });
+                            continue;
+                        }
+
+                        createdCount++;
+                        const { data: newCluster, error: clusterError } = await supabase.from('clusters').insert({ user_id: user.id, title: aiCluster.title, description: aiCluster.description, tags: aiCluster.tags, palette: aiCluster.palette }).select().single();
+                        if (clusterError) {
+                            createdCount--;
+                            console.error(`Failed to create cluster "${aiCluster.title}":`, clusterError);
+                            continue;
+                        }
+
+                        for (const image of aiCluster.images) {
+                            const file = nameToFileMap.get(image.alt);
+                            if (!file) continue;
+                            const imagePath = `${user.id}/${newCluster.id}/${uuidv4()}-${file.name}`;
+                            const { error: uploadError } = await supabase.storage.from('cluster-images').upload(imagePath, file);
+                            if (uploadError) { console.error('Failed to upload image', uploadError); continue; }
+                            await supabase.from('images').insert({ cluster_id: newCluster.id, user_id: user.id, image_path: imagePath, alt: file.name });
+                        }
                     }
                 }
-                return newClustersFromAI;
             } else {
                 // Guest logic
-                const newClustersFromAI = await clusterImages(files, onProgress, beforeClustering);
-                if (newClustersFromAI.length === 0) throw new Error("The AI could not create any clusters from your images.");
+                let currentLocalClusters: ClusterType[] = JSON.parse(localStorage.getItem('guestClusters') || '[]');
+                const aiClustersWithTempIds = newClustersFromAI.map(cluster => ({ ...cluster, id: uuidv4(), images: cluster.images.map(image => ({ ...image, id: uuidv4() })) }));
 
-                const tempClustersForState = newClustersFromAI.map(cluster => ({ ...cluster, id: uuidv4(), images: cluster.images.map(image => ({ ...image, id: uuidv4() })) }));
-                const currentLocalClusters = JSON.parse(localStorage.getItem('guestClusters') || '[]');
-                const updatedLocalClusters = [...tempClustersForState, ...currentLocalClusters];
-                localStorage.setItem('guestClusters', JSON.stringify(updatedLocalClusters));
-                setClusters(updatedLocalClusters);
-                return newClustersFromAI;
+                for (const aiCluster of aiClustersWithTempIds) {
+                    const existingClusterIndex = currentLocalClusters.findIndex(c => c.title.toLowerCase() === aiCluster.title.toLowerCase());
+                    if (existingClusterIndex > -1) {
+                        updatedCount++;
+                        const existingCluster = currentLocalClusters[existingClusterIndex];
+                        const newTags = Array.from(new Set([...(existingCluster.tags || []), ...(aiCluster.tags || [])]));
+                        currentLocalClusters[existingClusterIndex] = {
+                            ...existingCluster,
+                            description: aiCluster.description,
+                            tags: newTags,
+                            palette: aiCluster.palette,
+                            images: [...existingCluster.images, ...aiCluster.images],
+                        };
+                    } else {
+                        createdCount++;
+                        currentLocalClusters.unshift(aiCluster);
+                    }
+                }
+                localStorage.setItem('guestClusters', JSON.stringify(currentLocalClusters));
+                setClusters(currentLocalClusters);
             }
+            return { createdCount, updatedCount };
         },
-        onSuccess: (newClusters) => {
-            if(user) {
-                toast.success(`Successfully created and saved ${newClusters.length} new smart collection(s)!`);
+        onSuccess: ({ createdCount, updatedCount }) => {
+            if (user) {
+                let description = "";
+                if (createdCount > 0) description += `${createdCount} new collection(s) created. `;
+                if (updatedCount > 0) description += `${updatedCount} existing collection(s) updated.`;
+                
+                if (description) {
+                    toast.success("Collections processed successfully", { description: description.trim() });
+                } else {
+                    toast.info("No new collections to create or update.");
+                }
                 queryClient.invalidateQueries({ queryKey: ['clusters', user?.id] });
-            } else {
-                toast.success(`Successfully created ${newClusters.length} new collection(s)!`, { description: "Sign up to save them permanently." });
+            } else { // guest
+                let message = "";
+                if (createdCount > 0) message += `${createdCount} new collection(s) created. `;
+                if (updatedCount > 0) message += `${updatedCount} existing collection(s) updated.`;
+
+                if (message) {
+                    toast.success("Collections processed", { description: `${message.trim()} Sign up to save them permanently.` });
+                } else {
+                    toast.info("No new collections to create or update.", { description: "Sign up to save them permanently." });
+                }
             }
         },
         onError: (error: Error) => {
