@@ -72,7 +72,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const logout = async () => {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      // This can happen if the session is already invalidated on the server.
+      // We'll try a local sign-out to clear the client-side session and update the UI.
+      console.error("Global sign-out failed, attempting local sign-out:", error.message);
+      await supabase.auth.signOut({ scope: 'local' });
+    }
   };
 
   if (loading) {
