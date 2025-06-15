@@ -1,8 +1,9 @@
+
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ClusterType, ImageType } from '@/types';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Download } from 'lucide-react';
+import { ArrowLeft, Copy } from 'lucide-react';
 import Header from '@/components/Header';
 import { toast } from 'sonner';
 import ImageModal from '@/components/ImageModal';
@@ -68,9 +69,35 @@ const ClusterDetailPage: React.FC = () => {
     );
   }
 
-  const handleExport = () => {
-    toast.info(`Exporting ${cluster.images.length} images from "${cluster.title}"...`);
-    // Placeholder for actual export logic
+  const handleExportToFigma = async () => {
+    if (!cluster || cluster.images.length === 0) {
+      toast.info("This collection has no images to export.");
+      return;
+    }
+    toast.info(`Preparing ${cluster.images.length} images for Figma...`);
+
+    try {
+      const clipboardItems = await Promise.all(
+        cluster.images.map(async (image) => {
+          const response = await fetch(image.url);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch image: ${response.statusText}`);
+          }
+          const blob = await response.blob();
+          return new ClipboardItem({ [blob.type]: blob });
+        })
+      );
+
+      await navigator.clipboard.write(clipboardItems);
+      toast.success("Images copied!", {
+        description: `You can now paste ${cluster.images.length} images into Figma.`,
+      });
+    } catch (error) {
+      console.error("Failed to copy images to clipboard:", error);
+      toast.error("Failed to export to Figma", {
+        description: "Could not copy images. Your browser might not support this feature or permission was denied.",
+      });
+    }
   };
 
   const handleImageClick = (index: number) => {
@@ -107,8 +134,9 @@ const ClusterDetailPage: React.FC = () => {
                         <h1 className="text-3xl font-bold text-foreground">{cluster.title}</h1>
                         <p className="text-muted-foreground mt-1">{cluster.description || `${cluster.images.length} images in this cluster.`}</p>
                     </div>
-                    <Button onClick={handleExport} size="icon">
-                        <Download className="h-4 w-4" />
+                    <Button onClick={handleExportToFigma}>
+                        <Copy className="mr-2 h-4 w-4" />
+                        Export to Figma
                     </Button>
                 </div>
             </div>

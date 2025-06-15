@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { ClusterType } from '@/types';
-import { MoreHorizontal, Download, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Copy, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from 'sonner';
@@ -22,10 +22,36 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster, onDel
     onViewCluster(cluster);
   };
 
-  const handleExport = (e: React.MouseEvent) => {
+  const handleExportToFigma = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    toast.info(`Exporting ${cluster.images.length} images from "${cluster.title}"...`);
-    // Placeholder for actual export logic
+    if (cluster.images.length === 0) {
+      toast.info("This collection has no images to export.");
+      return;
+    }
+    toast.info(`Preparing ${cluster.images.length} images for Figma...`);
+
+    try {
+      const clipboardItems = await Promise.all(
+        cluster.images.map(async (image) => {
+          const response = await fetch(image.url);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch image: ${response.statusText}`);
+          }
+          const blob = await response.blob();
+          return new ClipboardItem({ [blob.type]: blob });
+        })
+      );
+
+      await navigator.clipboard.write(clipboardItems);
+      toast.success("Images copied!", {
+        description: `You can now paste ${cluster.images.length} images into Figma.`,
+      });
+    } catch (error) {
+      console.error("Failed to copy images to clipboard:", error);
+      toast.error("Failed to export to Figma", {
+        description: "Could not copy images. Your browser might not support this feature or permission was denied.",
+      });
+    }
   };
 
   const handleDelete = (e: React.MouseEvent) => {
@@ -102,9 +128,9 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster, onDel
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent onClick={(e) => e.stopPropagation()} align="end">
-            <DropdownMenuItem onClick={handleExport}>
-              <Download className="mr-2 h-4 w-4" />
-              <span>Export</span>
+            <DropdownMenuItem onClick={handleExportToFigma}>
+              <Copy className="mr-2 h-4 w-4" />
+              <span>Export to Figma</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleDelete} className="text-destructive focus:text-destructive focus:bg-destructive/10">
               <Trash2 className="mr-2 h-4 w-4" />
