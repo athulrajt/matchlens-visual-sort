@@ -1,6 +1,6 @@
 import React, { useEffect, useCallback, useState } from 'react';
 import { ImageType, ClusterType } from '@/types';
-import { ArrowLeft, ArrowRight, X, ArrowRightLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, X, ArrowRightLeft, Loader2, Info } from 'lucide-react';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -41,6 +41,20 @@ const ImageModal: React.FC<ImageModalProps> = ({
   const [direction, setDirection] = useState<'in' | 'next' | 'prev'>('in');
   const isMobile = useIsMobile();
   const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [showMoveGuide, setShowMoveGuide] = useState(false);
+
+  useEffect(() => {
+    const hasSeen = sessionStorage.getItem('hasSeenMoveGuide');
+    if (!hasSeen && !isMobile) { // Only show on web
+        setShowMoveGuide(true);
+    }
+  }, [isMobile]);
+
+  const handleDismissMoveGuide = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    sessionStorage.setItem('hasSeenMoveGuide', 'true');
+    setShowMoveGuide(false);
+  };
 
   const handleClose = useCallback(() => {
     setIsClosing(true);
@@ -113,6 +127,40 @@ const ImageModal: React.FC<ImageModalProps> = ({
   // Stop propagation to prevent clicks on arrows/image from closing modal
   const stopPropagation = (e: React.MouseEvent) => e.stopPropagation();
 
+  const MoveButtonContent = () => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button 
+          variant="ghost" 
+          className={cn(
+            "h-10 rounded-full [&_svg]:size-5",
+            isMobile 
+              ? "text-white/90 bg-transparent hover:bg-white/20 hover:text-white px-4" 
+              : "text-white/90 bg-black/20 hover:bg-black/40 hover:text-white px-4"
+          )}
+          disabled={isMovingImage}
+          aria-label="Move image to another collection"
+        >
+          {isMovingImage ? <Loader2 className="animate-spin" /> : <ArrowRightLeft />}
+          <span className="hidden sm:inline ml-2">Move</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent onClick={(e) => e.stopPropagation()} side={isMobile ? "top" : "bottom"} align="center" className="shadow-lg">
+        <DropdownMenuLabel className="text-center">Move to another collection</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {otherClusters.length > 0 ? (
+          otherClusters.map(cluster => (
+            <DropdownMenuItem key={cluster.id} onClick={() => handleMoveImage(cluster.id)} className="justify-center">
+              {cluster.title}
+            </DropdownMenuItem>
+          ))
+        ) : (
+          <DropdownMenuItem disabled className="justify-center">No other collections</DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   const imageAnimationClass = isClosing
     ? 'animate-scale-out'
     : {
@@ -131,15 +179,31 @@ const ImageModal: React.FC<ImageModalProps> = ({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={handleCloseClick}
-        className="absolute top-4 right-4 text-white/70 hover:bg-white/10 hover:text-white transition-colors z-50"
-        aria-label="Close image viewer"
-      >
-        <X className="h-6 w-6" />
-      </Button>
+      <div className="absolute top-4 right-4 flex items-center gap-2 z-50">
+        {onMoveImage && allClusters && !isMobile && (
+          <div className="relative">
+            <MoveButtonContent />
+            {showMoveGuide && (
+              <div 
+                onClick={handleDismissMoveGuide} 
+                className="absolute top-full right-0 mt-2 w-max max-w-xs p-2.5 rounded-xl bg-yellow-100/95 border border-yellow-200 text-yellow-900 text-xs shadow-lg animate-fade-in cursor-pointer flex items-start gap-2"
+              >
+                <Info className="h-4 w-4 flex-shrink-0" />
+                <span>You can move this image to another collection.</span>
+              </div>
+            )}
+          </div>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleCloseClick}
+          className="h-10 w-10 text-white/70 bg-black/20 hover:bg-black/40 hover:text-white rounded-full transition-colors"
+          aria-label="Close image viewer"
+        >
+          <X className="h-6 w-6" />
+        </Button>
+      </div>
 
       <div 
         className="relative max-w-screen-xl max-h-screen p-4 flex items-center justify-center"
@@ -179,35 +243,10 @@ const ImageModal: React.FC<ImageModalProps> = ({
           </>
         )}
 
-        {/* --- Actions Bar --- */}
-        {onMoveImage && allClusters && (
+        {/* --- Actions Bar for Mobile --- */}
+        {onMoveImage && allClusters && isMobile && (
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-orange to-primary text-primary-foreground rounded-full flex items-center justify-center p-1 z-50 animate-fade-in">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  className="text-white/90 bg-transparent hover:bg-white/20 hover:text-white rounded-full h-10 px-4 [&_svg]:size-5" 
-                  disabled={isMovingImage}
-                  aria-label="Move image to another collection"
-                >
-                  {isMovingImage ? <Loader2 className="animate-spin" /> : <ArrowRightLeft />}
-                  <span className="hidden sm:inline">Move</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent onClick={(e) => e.stopPropagation()} side="top" align="center" className="shadow-lg">
-                <DropdownMenuLabel className="text-center">Move to another collection</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {otherClusters.length > 0 ? (
-                  otherClusters.map(cluster => (
-                    <DropdownMenuItem key={cluster.id} onClick={() => handleMoveImage(cluster.id)} className="justify-center">
-                      {cluster.title}
-                    </DropdownMenuItem>
-                  ))
-                ) : (
-                  <DropdownMenuItem disabled className="justify-center">No other collections</DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <MoveButtonContent />
           </div>
         )}
       </div>

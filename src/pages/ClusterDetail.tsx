@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ClusterType, ImageType } from '@/types';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Copy } from 'lucide-react';
+import { ArrowLeft, Copy, Info } from 'lucide-react';
 import Header from '@/components/Header';
 import { toast } from 'sonner';
 import ImageModal from '@/components/ImageModal';
 import { useClusters } from '@/hooks/useClusters';
 import { exportImagesToFigma } from '@/lib/figmaExport';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const ClusterDetailPage: React.FC = () => {
   const location = useLocation();
@@ -16,7 +17,15 @@ const ClusterDetailPage: React.FC = () => {
   const [cluster, setCluster] = useState<ClusterType | undefined>(location.state?.cluster);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const { clusters: allClusters, moveImage, moveImageToClusterMutation } = useClusters();
+  const [showImageViewGuide, setShowImageViewGuide] = useState(false);
 
+  useEffect(() => {
+    const hasSeen = sessionStorage.getItem('hasSeenImageViewGuide');
+    if (!hasSeen) {
+        setShowImageViewGuide(true);
+    }
+  }, []);
+  
   useEffect(() => {
     if (cluster && !location.state?.cluster) { // Only scroll if not coming from navigation state
         return;
@@ -97,6 +106,11 @@ const ClusterDetailPage: React.FC = () => {
     }
   };
   
+  const handleDismissImageViewGuide = () => {
+    sessionStorage.setItem('hasSeenImageViewGuide', 'true');
+    setShowImageViewGuide(false);
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-transparent animate-slide-in-right">
         <Header isScrolled={true} />
@@ -117,6 +131,19 @@ const ClusterDetailPage: React.FC = () => {
                     </Button>
                 </div>
             </div>
+
+            {showImageViewGuide && (
+              <Alert 
+                  className="mb-6 bg-yellow-100/80 border-yellow-200 text-yellow-900 cursor-pointer hover:bg-yellow-100 animate-fade-in" 
+                  onClick={handleDismissImageViewGuide}
+              >
+                  <Info className="h-4 w-4" />
+                  <AlertTitle className="font-semibold">Quick Tip!</AlertTitle>
+                  <AlertDescription>
+                      You can click on any image to view it in full screen and see more options.
+                  </AlertDescription>
+              </Alert>
+            )}
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {cluster.images.map((image: ImageType, index) => (

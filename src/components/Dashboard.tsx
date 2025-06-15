@@ -1,9 +1,9 @@
-
+import React, { useState, useEffect } from 'react';
 import { ClusterType } from '@/types';
 import ClusterCard from '@/components/ClusterCard';
 import NoResults from '@/components/NoResults';
 import { Button } from '@/components/ui/button';
-import { Trash2, Search } from 'lucide-react';
+import { Trash2, Search, Info } from 'lucide-react';
 
 interface DashboardProps {
   filteredClusters: ClusterType[];
@@ -33,17 +33,44 @@ const Dashboard = ({
   const showNoFilterResults = allClusters.length > 0 && filteredClusters.length === 0 && hasActiveFilters && !searchTerm;
   const showNoSearchResults = allClusters.length > 0 && searchTerm && filteredClusters.length === 0;
 
+  const [showMergeGuide, setShowMergeGuide] = useState(false);
+
+  useEffect(() => {
+    // Show guide only if there are clusters and the user hasn't seen it before in this session.
+    const hasSeen = sessionStorage.getItem('hasSeenMergeGuide');
+    if (!hasSeen && filteredClusters.length > 0) {
+      setShowMergeGuide(true);
+    }
+  }, [filteredClusters.length]);
+
+  const handleDismissMergeGuide = () => {
+    sessionStorage.setItem('hasSeenMergeGuide', 'true');
+    setShowMergeGuide(false);
+  };
+
   return (
     <div className="flex-1 w-full animate-fade-in">
       {filteredClusters.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredClusters.map((cluster) => (
-            <ClusterCard
-              key={cluster.id}
-              cluster={cluster}
-              onViewCluster={onViewCluster}
-              onDeleteCluster={onDeleteCluster}
-            />
+          {filteredClusters.map((cluster, index) => (
+            <div key={cluster.id}>
+              <ClusterCard
+                cluster={cluster}
+                onViewCluster={onViewCluster}
+                onDeleteCluster={onDeleteCluster}
+              />
+              {index === 0 && showMergeGuide && (
+                <div 
+                  onClick={handleDismissMergeGuide} 
+                  className="mt-4 p-3 rounded-xl bg-yellow-100/80 border border-yellow-200/80 text-yellow-900 text-sm animate-fade-in cursor-pointer shadow-soft flex items-start gap-2.5"
+                >
+                  <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span>
+                    <strong>Tip:</strong> You can merge collections by dragging one on top of another.
+                  </span>
+                </div>
+              )}
+            </div>
           ))}
         </div>
       ) : showNoSearchResults ? (
