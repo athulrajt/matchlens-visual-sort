@@ -1,8 +1,5 @@
 
-import { colord, extend } from "colord";
-import hslPlugin from "colord/plugins/hsl";
-
-extend([hslPlugin]);
+import { colord } from "colord";
 
 // Simplified color mood detection.
 
