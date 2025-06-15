@@ -17,7 +17,8 @@ export const getFeatureExtractor = async () => {
     if (featureExtractor === null) {
         featureExtractor = await pipeline(
             'image-feature-extraction',
-            'Xenova/clip-vit-base-patch32'
+            'Xenova/clip-vit-base-patch32',
+            { quantized: true }
         );
         console.log("✅ Feature extractor (for similarity) model loaded.");
     }
@@ -32,7 +33,8 @@ export const getClassifier = async () => {
     if (classifier === null) {
         classifier = await pipeline(
             'zero-shot-image-classification',
-            'Xenova/clip-vit-base-patch16'
+            'Xenova/clip-vit-base-patch16',
+            { quantized: true }
         );
         console.log("✅ Classifier (for tagging) model loaded.");
     }

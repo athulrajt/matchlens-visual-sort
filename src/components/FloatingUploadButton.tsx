@@ -20,10 +20,10 @@ const FloatingUploadButton: React.FC<FloatingUploadButtonProps> = ({ isScrolled,
       )}
       aria-label={isScrolled ? 'Upload More' : 'Upload'}
     >
-      <Upload className={cn("h-7 w-7 transition-all duration-300", isScrolled && "mr-2")} />
+      <Upload className={cn("h-8 w-8 transition-all duration-300", isScrolled && "mr-2")} />
       <span className={cn(
-        "transition-all duration-300 ease-in-out font-semibold whitespace-nowrap overflow-hidden",
-        isScrolled ? 'max-w-xs opacity-100' : 'max-w-0 opacity-0'
+        "transition-all duration-300 ease-in-out font-semibold overflow-hidden",
+        isScrolled ? 'max-w-xs opacity-100 whitespace-nowrap' : 'max-w-0 opacity-0'
       )}>
         Upload More
       </span>
