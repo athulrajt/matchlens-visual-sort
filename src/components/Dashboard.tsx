@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { ClusterType } from '@/types';
 import ClusterCard from '@/components/ClusterCard';
 import NoResults from '@/components/NoResults';
 import { Button } from '@/components/ui/button';
-import { Trash2, Search, Info, X } from 'lucide-react';
+import { Trash2, Search } from 'lucide-react';
 
 interface DashboardProps {
   filteredClusters: ClusterType[];
@@ -32,21 +32,6 @@ const Dashboard = ({
 }: DashboardProps) => {
   const showNoFilterResults = allClusters.length > 0 && filteredClusters.length === 0 && hasActiveFilters && !searchTerm;
   const showNoSearchResults = allClusters.length > 0 && searchTerm && filteredClusters.length === 0;
-
-  const [showMergeGuide, setShowMergeGuide] = useState(false);
-
-  useEffect(() => {
-    // Show guide only if there are clusters and the user hasn't seen it before in this session.
-    const hasSeen = sessionStorage.getItem('hasSeenMergeGuide');
-    if (!hasSeen && filteredClusters.length > 0) {
-      setShowMergeGuide(true);
-    }
-  }, [filteredClusters.length]);
-
-  const handleDismissMergeGuide = () => {
-    sessionStorage.setItem('hasSeenMergeGuide', 'true');
-    setShowMergeGuide(false);
-  };
 
   return (
     <div className="flex-1 w-full animate-fade-in">
@@ -79,26 +64,6 @@ const Dashboard = ({
           <Button variant="outline" onClick={onClearAll} className="text-destructive hover:text-destructive/80 hover:border-destructive/50" disabled={isClearing}>
             <Trash2 className="mr-2 h-4 w-4" />
             {isClearing ? 'Clearing...' : 'Clear All Collections'}
-          </Button>
-        </div>
-      )}
-
-      {showMergeGuide && (
-        <div 
-          className="fixed bottom-8 right-8 max-w-sm z-50 p-3 pr-10 rounded-xl bg-yellow-100/80 border border-yellow-200/80 text-yellow-900 text-sm animate-fade-in shadow-soft flex items-start gap-2.5"
-        >
-          <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-          <span>
-            <strong>Tip:</strong> You can merge collections by dragging one on top of another.
-          </span>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleDismissMergeGuide}
-            className="absolute top-1/2 -translate-y-1/2 right-1 h-8 w-8 text-yellow-900/70 hover:text-yellow-900 hover:bg-yellow-200/50 rounded-full"
-            aria-label="Dismiss tip"
-            >
-            <X className="h-4 w-4" />
           </Button>
         </div>
       )}

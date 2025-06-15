@@ -5,7 +5,6 @@ import { ClusterType } from '@/types';
 import { cn } from '@/lib/utils';
 import ProcessingView from '@/components/ProcessingView';
 import { useAuth } from '@/contexts/AuthProvider';
-
 import { useClusters } from '@/hooks/useClusters';
 import { useImageUploader } from '@/hooks/useImageUploader';
 import InitialView from '@/components/InitialView';
@@ -17,6 +16,8 @@ import FilterModal from '@/components/FilterModal';
 import { getPaletteMoods } from '@/lib/colorUtils';
 import MergeClusterDialog from '@/components/MergeClusterDialog';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Info, X } from 'lucide-react';
 
 const IndexPage = () => {
   const { user } = useAuth();
@@ -27,6 +28,8 @@ const IndexPage = () => {
   
   const [activeFilters, setActiveFilters] = useState<{ tags: string[]; colors: string[] }>({ tags: [], colors: [] });
   const [searchTerm, setSearchTerm] = useState('');
+  const [mergingClustersInfo, setMergingClustersInfo] = useState<{ c1: ClusterType, c2: ClusterType } | null>(null);
+  const [showMergeGuide, setShowMergeGuide] = useState(false);
 
   const { isProcessing, isClustering, processingFiles, fileInputRef, handleUploadClick, handleFileChange } = useImageUploader({
     createClusters,
@@ -41,7 +44,6 @@ const IndexPage = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const isMobile = useIsMobile();
-  const [mergingClustersInfo, setMergingClustersInfo] = useState<{ c1: ClusterType, c2: ClusterType } | null>(null);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 10);
@@ -115,6 +117,19 @@ const IndexPage = () => {
       (cluster.description && cluster.description.toLowerCase().includes(lowercasedTerm))
     );
   }, [filteredClusters, searchTerm]);
+
+  useEffect(() => {
+    // Show guide only if there are clusters and the user hasn't seen it before in this session.
+    const hasSeen = sessionStorage.getItem('hasSeenMergeGuide');
+    if (!hasSeen && searchedClusters.length > 0) {
+      setShowMergeGuide(true);
+    }
+  }, [searchedClusters.length]);
+
+  const handleDismissMergeGuide = () => {
+    sessionStorage.setItem('hasSeenMergeGuide', 'true');
+    setShowMergeGuide(false);
+  };
 
   const handleViewCluster = (cluster: ClusterType) => {
     navigate(`/cluster/${cluster.id}`, { state: { cluster } });
@@ -224,6 +239,25 @@ const IndexPage = () => {
       />
       {user && !isInitialView && isMobile && (
         <FloatingUploadButton isScrolled={isScrolled} onClick={handleUploadClick} />
+      )}
+      {showMergeGuide && (
+        <div 
+          className="fixed bottom-8 right-8 max-w-sm z-50 p-3 pr-10 rounded-xl bg-yellow-100/80 border border-yellow-200/80 text-yellow-900 text-sm animate-fade-in shadow-soft flex items-start gap-2.5"
+        >
+          <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+          <span>
+            <strong>Tip:</strong> You can merge collections by dragging one on top of another.
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleDismissMergeGuide}
+            className="absolute top-1/2 -translate-y-1/2 right-1 h-8 w-8 text-yellow-900/70 hover:text-yellow-900 hover:bg-yellow-200/50 rounded-full"
+            aria-label="Dismiss tip"
+            >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       )}
     </div>
   );
