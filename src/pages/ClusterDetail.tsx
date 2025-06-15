@@ -132,27 +132,6 @@ const ClusterDetailPage: React.FC = () => {
                 </div>
             </div>
 
-            {showImageViewGuide && (
-              <Alert 
-                  className="mb-6 bg-yellow-100/80 border-yellow-200 text-yellow-900 animate-fade-in relative pr-10"
-              >
-                  <Info className="h-4 w-4" />
-                  <AlertTitle className="font-semibold">Quick Tip!</AlertTitle>
-                  <AlertDescription>
-                      You can click on any image to view it in full screen and see more options.
-                  </AlertDescription>
-                   <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleDismissImageViewGuide}
-                    className="absolute top-1/2 -translate-y-1/2 right-1 h-8 w-8 text-yellow-900/70 hover:text-yellow-900 hover:bg-yellow-200/50 rounded-full"
-                    aria-label="Dismiss tip"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-              </Alert>
-            )}
-
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {cluster.images.map((image: ImageType, index) => (
                     <div 
@@ -182,6 +161,27 @@ const ClusterDetailPage: React.FC = () => {
             onMoveImage={moveImage}
             isMovingImage={moveImageToClusterMutation.isPending}
           />
+        )}
+        
+        {showImageViewGuide && (
+          <Alert 
+              className="fixed bottom-8 right-8 z-50 max-w-sm bg-yellow-100/80 border-yellow-200 text-yellow-900 animate-fade-in shadow-soft rounded-xl pr-10"
+          >
+              <Info className="h-4 w-4" />
+              <AlertTitle className="font-semibold">Quick Tip!</AlertTitle>
+              <AlertDescription>
+                  You can click on any image to view it in full screen and see more options.
+              </AlertDescription>
+                <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleDismissImageViewGuide}
+                className="absolute top-1/2 -translate-y-1/2 right-1 h-8 w-8 text-yellow-900/70 hover:text-yellow-900 hover:bg-yellow-200/50 rounded-full"
+                aria-label="Dismiss tip"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+          </Alert>
         )}
     </div>
   );

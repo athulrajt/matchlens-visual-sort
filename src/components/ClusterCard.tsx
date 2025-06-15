@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ClusterType } from '@/types';
 import { MoreHorizontal, Copy, Trash2 } from 'lucide-react';
@@ -105,7 +104,7 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster, onDel
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       className={cn(
-        "relative bg-card/60 backdrop-blur-md rounded-2xl shadow-soft overflow-hidden transform transition-all hover:shadow-soft-lg hover:-translate-y-1 animate-scale-in flex flex-col cursor-pointer group",
+        "relative bg-card/60 backdrop-blur-md rounded-2xl shadow-soft overflow-hidden transform transition-all hover:shadow-soft-lg hover:-translate-y-1 animate-scale-in flex flex-col cursor-pointer group h-[440px]",
         isDragOver && "outline-dashed outline-2 outline-primary outline-offset-2"
       )}
     >
