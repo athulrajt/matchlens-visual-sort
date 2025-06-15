@@ -1,3 +1,4 @@
+
 import React, { useEffect, useCallback, useState } from 'react';
 import { ImageType, ClusterType } from '@/types';
 import { ArrowLeft, ArrowRight, X, ArrowRightLeft, Loader2 } from 'lucide-react';
@@ -194,17 +195,17 @@ const ImageModal: React.FC<ImageModalProps> = ({
                   <span className="ml-2 hidden sm:inline">Move</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent onClick={(e) => e.stopPropagation()} side="top" align="center">
-                <DropdownMenuLabel>Move to another collection</DropdownMenuLabel>
+              <DropdownMenuContent onClick={(e) => e.stopPropagation()} side="top" align="center" className="shadow-lg">
+                <DropdownMenuLabel className="text-center">Move to another collection</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {otherClusters.length > 0 ? (
                   otherClusters.map(cluster => (
-                    <DropdownMenuItem key={cluster.id} onClick={() => handleMoveImage(cluster.id)}>
+                    <DropdownMenuItem key={cluster.id} onClick={() => handleMoveImage(cluster.id)} className="justify-center">
                       {cluster.title}
                     </DropdownMenuItem>
                   ))
                 ) : (
-                  <DropdownMenuItem disabled>No other collections</DropdownMenuItem>
+                  <DropdownMenuItem disabled className="justify-center">No other collections</DropdownMenuItem>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
