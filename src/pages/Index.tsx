@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '@/components/Header';
-import FilterSheet from '@/components/FilterSheet';
 import { ClusterType } from '@/types';
 import { cn } from '@/lib/utils';
 import ProcessingView from '@/components/ProcessingView';
@@ -14,6 +13,8 @@ import Dashboard from '@/components/Dashboard';
 import { AuthModal } from '@/components/AuthModal';
 import { useIsMobile } from '@/hooks/use-mobile';
 import FloatingUploadButton from '@/components/FloatingUploadButton';
+import FilterModal from '@/components/FilterModal';
+import { getPaletteMoods } from '@/lib/colorUtils';
 
 const IndexPage = () => {
   const { user } = useAuth();
@@ -22,19 +23,19 @@ const IndexPage = () => {
 
   const { clusters, isLoadingClusters, createClusters, deleteCluster, clearClusters, clearClustersMutation } = useClusters();
   
-  const [activeFilters, setActiveFilters] = useState<{ tags: string[] }>({ tags: [] });
+  const [activeFilters, setActiveFilters] = useState<{ tags: string[]; colors: string[] }>({ tags: [], colors: [] });
   const [searchTerm, setSearchTerm] = useState('');
 
   const { isProcessing, isClustering, processingFiles, fileInputRef, handleUploadClick, handleFileChange } = useImageUploader({
     createClusters,
     onUploadStart: () => {
-      setActiveFilters({ tags: [] });
+      setActiveFilters({ tags: [], colors: [] });
       setSearchTerm('');
     },
     onUploadEnd: () => {},
   });
 
-  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const isMobile = useIsMobile();
@@ -47,7 +48,7 @@ const IndexPage = () => {
 
   useEffect(() => {
     if (location.state?.clearFilters) {
-      setActiveFilters({ tags: [] });
+      setActiveFilters({ tags: [], colors: [] });
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [location.state, navigate, location.pathname]);
@@ -59,11 +60,26 @@ const IndexPage = () => {
   }, [clusters]);
 
   const filteredClusters = useMemo(() => {
-    if (activeFilters.tags.length === 0) return clusters;
-    const lowerCaseFilterTags = activeFilters.tags.map(t => t.toLowerCase());
-    return clusters.filter(cluster => 
-      cluster.tags?.some(clusterTag => lowerCaseFilterTags.includes(clusterTag.toLowerCase()))
-    );
+    let filtered = clusters;
+
+    // Tag filtering
+    if (activeFilters.tags.length > 0) {
+      const lowerCaseFilterTags = activeFilters.tags.map(t => t.toLowerCase());
+      filtered = filtered.filter(cluster => 
+        cluster.tags?.some(clusterTag => lowerCaseFilterTags.includes(clusterTag.toLowerCase()))
+      );
+    }
+    
+    // Color filtering
+    if (activeFilters.colors.length > 0) {
+        filtered = filtered.filter(cluster => {
+            if (!cluster.palette || cluster.palette.length === 0) return false;
+            const moods = getPaletteMoods(cluster.palette);
+            return activeFilters.colors.some(colorFilter => moods.includes(colorFilter));
+        });
+    }
+
+    return filtered;
   }, [clusters, activeFilters]);
 
   const searchedClusters = useMemo(() => {
@@ -79,6 +95,18 @@ const IndexPage = () => {
 
   const handleViewCluster = (cluster: ClusterType) => {
     navigate(`/cluster/${cluster.id}`, { state: { cluster } });
+  };
+
+  const handleApplyFilters = (newFilters: { tags: string[]; colors: string[] }) => {
+    setActiveFilters(newFilters);
+    // Clearing search on applying filters for a cleaner experience
+    setSearchTerm(''); 
+    setIsFilterModalOpen(false);
+  };
+
+  const handleClearFiltersAndRefresh = () => {
+    // As requested, this will clear filters by reloading the page.
+    window.location.reload();
   };
 
   const isInitialView = clusters.length === 0 && !isProcessing && !isLoadingClusters;
@@ -98,7 +126,7 @@ const IndexPage = () => {
         showTopUploadButton={!isInitialView}
         onTopUploadClick={handleUploadClick}
         showFilterButton={!isInitialView}
-        onFilterButtonClick={() => setIsFilterSheetOpen(true)}
+        onFilterButtonClick={() => setIsFilterModalOpen(true)}
         onSignInClick={() => setIsAuthModalOpen(true)}
         showSearchButton={!isInitialView}
         searchTerm={searchTerm}
@@ -113,11 +141,11 @@ const IndexPage = () => {
           <Dashboard
             filteredClusters={searchedClusters}
             allClusters={clusters}
-            hasActiveFilters={activeFilters.tags.length > 0}
+            hasActiveFilters={activeFilters.tags.length > 0 || activeFilters.colors.length > 0}
             onViewCluster={handleViewCluster}
             onDeleteCluster={deleteCluster}
             onClearAll={clearClusters}
-            onAdjustFilters={() => setIsFilterSheetOpen(true)}
+            onAdjustFilters={() => setIsFilterModalOpen(true)}
             isClearing={clearClustersMutation.isPending}
             searchTerm={searchTerm}
             onClearSearch={() => setSearchTerm('')}
@@ -131,12 +159,13 @@ const IndexPage = () => {
         MatchLens © {new Date().getFullYear()} - Created with Lovable.
       </footer>
       {!isInitialView && (
-         <FilterSheet 
-           isOpen={isFilterSheetOpen} 
-           onOpenChange={setIsFilterSheetOpen}
+         <FilterModal 
+           isOpen={isFilterModalOpen} 
+           onOpenChange={setIsFilterModalOpen}
            allTags={allTags}
            activeFilters={activeFilters}
-           onApplyFilters={setActiveFilters}
+           onApplyFilters={handleApplyFilters}
+           onClear={handleClearFiltersAndRefresh}
          />
       )}
       <AuthModal 
