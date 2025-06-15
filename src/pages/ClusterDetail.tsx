@@ -5,12 +5,14 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Download } from 'lucide-react';
 import Header from '@/components/Header';
 import { toast } from 'sonner';
+import ImageModal from '@/components/ImageModal';
 
 const ClusterDetailPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { clusterId } = useParams<{ clusterId?: string }>();
   const [cluster, setCluster] = useState<ClusterType | undefined>(location.state?.cluster);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (cluster) {
@@ -51,6 +53,26 @@ const ClusterDetailPage: React.FC = () => {
     toast.info(`Exporting ${cluster.images.length} images from "${cluster.title}"...`);
     // Placeholder for actual export logic
   };
+
+  const handleImageClick = (index: number) => {
+    setSelectedImageIndex(index);
+  };
+  
+  const handleCloseModal = () => {
+    setSelectedImageIndex(null);
+  };
+  
+  const handleNextImage = () => {
+    if (selectedImageIndex !== null) {
+      setSelectedImageIndex((prev) => (prev! + 1) % cluster.images.length);
+    }
+  };
+
+  const handlePrevImage = () => {
+    if (selectedImageIndex !== null) {
+      setSelectedImageIndex((prev) => (prev! - 1 + cluster.images.length) % cluster.images.length);
+    }
+  };
   
   return (
     <div className="flex flex-col min-h-screen bg-transparent animate-slide-in-right">
@@ -74,16 +96,30 @@ const ClusterDetailPage: React.FC = () => {
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {cluster.images.map((image: ImageType, index) => (
-                    <div key={image.id} className="aspect-square rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow animate-scale-in" style={{ animationDelay: `${index * 20}ms`}}>
+                    <div 
+                        key={image.id} 
+                        className="aspect-square rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow animate-scale-in cursor-pointer group"
+                        style={{ animationDelay: `${index * 20}ms`}}
+                        onClick={() => handleImageClick(index)}
+                    >
                         <img 
                             src={image.url} 
                             alt={image.alt} 
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                     </div>
                 ))}
             </div>
         </main>
+        {selectedImageIndex !== null && (
+          <ImageModal 
+            images={cluster.images}
+            currentIndex={selectedImageIndex}
+            onClose={handleCloseModal}
+            onNext={handleNextImage}
+            onPrev={handlePrevImage}
+          />
+        )}
     </div>
   );
 };
