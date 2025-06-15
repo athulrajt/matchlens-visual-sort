@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ClusterType } from '@/types';
 import { MoreHorizontal, Copy, Trash2 } from 'lucide-react';
@@ -6,6 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { exportImagesToFigma } from '@/lib/figmaExport';
+import PinterestIcon from './icons/PinterestIcon';
 
 interface ClusterCardProps {
   cluster: ClusterType;
@@ -36,6 +38,27 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster, onDel
     e.stopPropagation();
     navigator.clipboard.writeText(color);
     toast.success(`Copied ${color} to clipboard!`);
+  };
+
+  const handleShareToPinterest = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!cluster.images || cluster.images.length === 0) {
+      toast.error("This collection has no images to share on Pinterest.");
+      return;
+    }
+
+    // Pinterest's "Pin It" button can only take one image. We'll use the first one.
+    // A full integration to create a board with multiple images would require the Pinterest API and user authentication.
+    const firstImage = cluster.images[0];
+    const pinDescription = `${cluster.title}${cluster.description ? ` - ${cluster.description}` : ''}`;
+    
+    // The `url` parameter is the source page of the Pin.
+    const sourceUrl = window.location.href;
+
+    const pinterestUrl = `https://www.pinterest.com/pin/create/button/?url=${encodeURIComponent(sourceUrl)}&media=${encodeURIComponent(firstImage.url)}&description=${encodeURIComponent(pinDescription)}`;
+    
+    toast.info("Opening Pinterest to create a new Pin...");
+    window.open(pinterestUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handleDragStart = (e: React.DragEvent) => {
@@ -113,7 +136,7 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster, onDel
         </DropdownMenu>
       </div>
 
-      <div className="p-5 flex-grow">
+      <div className="p-5 flex-grow flex flex-col">
         <h3 className="text-xl font-semibold text-foreground mb-2 pr-8">{cluster.title}</h3>
         <p className="text-sm text-muted-foreground mb-4 h-10 overflow-hidden">
           {cluster.description || `${cluster.images.length} images in this cluster.`}
@@ -156,19 +179,29 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster, onDel
           </div>
         )}
 
-        <div className="mb-4">
-          <p className="text-xs text-muted-foreground mb-2">Dominant Colors:</p>
-          <div className="flex items-center space-x-2 h-6">
-            {cluster.palette.map((color, index) => (
-              <div
-                key={index}
-                className="h-6 w-6 rounded-full border-2 border-white/50 shadow-sm cursor-pointer transition-transform hover:scale-110"
-                style={{ backgroundColor: color }}
-                title={`Copy ${color}`}
-                onClick={(e) => handleCopyColor(e, color)}
-              ></div>
-            ))}
+        <div className="mt-auto pt-4 flex items-end justify-between">
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">Dominant Colors:</p>
+            <div className="flex items-center space-x-2 h-6">
+              {cluster.palette.map((color, index) => (
+                <div
+                  key={index}
+                  className="h-6 w-6 rounded-full border-2 border-white/50 shadow-sm cursor-pointer transition-transform hover:scale-110"
+                  style={{ backgroundColor: color }}
+                  title={`Copy ${color}`}
+                  onClick={(e) => handleCopyColor(e, color)}
+                ></div>
+              ))}
+            </div>
           </div>
+          <button
+            onClick={handleShareToPinterest}
+            aria-label="Share on Pinterest"
+            title="Share on Pinterest"
+            className="text-muted-foreground hover:text-[#E60023] transition-colors p-1 rounded-full hover:bg-red-50/50"
+          >
+            <PinterestIcon className="h-6 w-6" />
+          </button>
         </div>
       </div>
     </div>
