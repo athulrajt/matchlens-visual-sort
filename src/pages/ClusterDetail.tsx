@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ClusterType, ImageType } from '@/types';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Copy, Info } from 'lucide-react';
+import { ArrowLeft, Copy, Info, X } from 'lucide-react';
 import Header from '@/components/Header';
 import { toast } from 'sonner';
 import ImageModal from '@/components/ImageModal';
@@ -134,14 +134,22 @@ const ClusterDetailPage: React.FC = () => {
 
             {showImageViewGuide && (
               <Alert 
-                  className="mb-6 bg-yellow-100/80 border-yellow-200 text-yellow-900 cursor-pointer hover:bg-yellow-100 animate-fade-in" 
-                  onClick={handleDismissImageViewGuide}
+                  className="mb-6 bg-yellow-100/80 border-yellow-200 text-yellow-900 animate-fade-in relative pr-10"
               >
                   <Info className="h-4 w-4" />
                   <AlertTitle className="font-semibold">Quick Tip!</AlertTitle>
                   <AlertDescription>
                       You can click on any image to view it in full screen and see more options.
                   </AlertDescription>
+                   <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleDismissImageViewGuide}
+                    className="absolute top-1/2 -translate-y-1/2 right-1 h-8 w-8 text-yellow-900/70 hover:text-yellow-900 hover:bg-yellow-200/50 rounded-full"
+                    aria-label="Dismiss tip"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
               </Alert>
             )}
 

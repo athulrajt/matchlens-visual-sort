@@ -3,7 +3,7 @@ import { ClusterType } from '@/types';
 import ClusterCard from '@/components/ClusterCard';
 import NoResults from '@/components/NoResults';
 import { Button } from '@/components/ui/button';
-import { Trash2, Search, Info } from 'lucide-react';
+import { Trash2, Search, Info, X } from 'lucide-react';
 
 interface DashboardProps {
   filteredClusters: ClusterType[];
@@ -61,13 +61,21 @@ const Dashboard = ({
               />
               {index === 0 && showMergeGuide && (
                 <div 
-                  onClick={handleDismissMergeGuide} 
-                  className="mt-4 p-3 rounded-xl bg-yellow-100/80 border border-yellow-200/80 text-yellow-900 text-sm animate-fade-in cursor-pointer shadow-soft flex items-start gap-2.5"
+                  className="relative mt-4 p-3 pr-10 rounded-xl bg-yellow-100/80 border border-yellow-200/80 text-yellow-900 text-sm animate-fade-in shadow-soft flex items-start gap-2.5"
                 >
                   <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
                   <span>
                     <strong>Tip:</strong> You can merge collections by dragging one on top of another.
                   </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleDismissMergeGuide}
+                    className="absolute top-1/2 -translate-y-1/2 right-1 h-8 w-8 text-yellow-900/70 hover:text-yellow-900 hover:bg-yellow-200/50 rounded-full"
+                    aria-label="Dismiss tip"
+                   >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
               )}
             </div>

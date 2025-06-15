@@ -185,11 +185,19 @@ const ImageModal: React.FC<ImageModalProps> = ({
             <MoveButtonContent />
             {showMoveGuide && (
               <div 
-                onClick={handleDismissMoveGuide} 
-                className="absolute top-full right-0 mt-2 w-max max-w-xs p-2.5 rounded-xl bg-yellow-100/95 border border-yellow-200 text-yellow-900 text-xs shadow-lg animate-fade-in cursor-pointer flex items-start gap-2"
+                className="absolute top-full right-0 mt-2 w-max max-w-xs p-2.5 rounded-xl bg-yellow-100/95 border border-yellow-200 text-yellow-900 text-xs shadow-lg animate-fade-in flex items-start gap-2"
               >
                 <Info className="h-4 w-4 flex-shrink-0" />
                 <span>You can move this image to another collection.</span>
+                 <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleDismissMoveGuide}
+                    className="absolute top-0.5 right-0.5 h-6 w-6 text-yellow-900/70 hover:text-yellow-900 hover:bg-yellow-200/50 rounded-full"
+                    aria-label="Dismiss tip"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
               </div>
             )}
           </div>

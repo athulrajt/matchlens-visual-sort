@@ -12,7 +12,7 @@ export const useClusters = () => {
     const queryClient = useQueryClient();
     const [clusters, setClusters] = useState<ClusterType[]>([]);
 
-    const { data: supabaseClusters = [], isLoading: isLoadingClusters } = useQuery<ClusterType[]>({
+    const { data: supabaseClusters, isLoading: isLoadingClusters } = useQuery<ClusterType[]>({
         queryKey: ['clusters', user?.id],
         queryFn: async () => {
             if (!user) return [];
@@ -41,7 +41,7 @@ export const useClusters = () => {
 
     useEffect(() => {
         if (user) {
-            setClusters(supabaseClusters);
+            setClusters(supabaseClusters || []);
         } else {
             try {
                 const localClustersRaw = localStorage.getItem('guestClusters');
