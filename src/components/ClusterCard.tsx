@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ClusterType } from '@/types';
 import { MoreHorizontal, Copy, Trash2 } from 'lucide-react';
@@ -7,7 +6,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { exportImagesToFigma } from '@/lib/figmaExport';
-import PinterestIcon from './icons/PinterestIcon';
 
 interface ClusterCardProps {
   cluster: ClusterType;
@@ -198,9 +196,9 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster, onDel
             onClick={handleShareToPinterest}
             aria-label="Share on Pinterest"
             title="Share on Pinterest"
-            className="text-muted-foreground hover:text-[#E60023] transition-colors p-1 rounded-full hover:bg-red-50/50"
+            className="transition-transform hover:scale-110"
           >
-            <PinterestIcon className="h-6 w-6" />
+            <img src="/lovable-uploads/Pinterest-logo.png" alt="Share on Pinterest" className="h-8 w-8 object-contain" />
           </button>
         </div>
       </div>
