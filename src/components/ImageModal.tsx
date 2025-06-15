@@ -4,6 +4,7 @@ import { ImageType } from '@/types';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ImageModalProps {
   images: ImageType[];
@@ -16,11 +17,18 @@ interface ImageModalProps {
 const ImageModal: React.FC<ImageModalProps> = ({ images, currentIndex, onClose, onNext, onPrev }) => {
   const [isClosing, setIsClosing] = useState(false);
   const [direction, setDirection] = useState<'in' | 'next' | 'prev'>('in');
+  const isMobile = useIsMobile();
+  const [touchStart, setTouchStart] = useState<number | null>(null);
 
   const handleClose = useCallback(() => {
     setIsClosing(true);
     setTimeout(onClose, 300); // Animation duration
   }, [onClose]);
+
+  const handleCloseClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleClose();
+  };
 
   const wrappedOnNext = useCallback((e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -39,6 +47,26 @@ const ImageModal: React.FC<ImageModalProps> = ({ images, currentIndex, onClose, 
     if (e.key === 'ArrowLeft') wrappedOnPrev();
     if (e.key === 'Escape') handleClose();
   }, [wrappedOnNext, wrappedOnPrev, handleClose]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!isMobile || images.length <= 1) return;
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!isMobile || touchStart === null) return;
+
+    const touchEnd = e.changedTouches[0].clientX;
+    const diff = touchStart - touchEnd;
+    const SWIPE_THRESHOLD = 50; // Min swipe distance
+
+    if (diff > SWIPE_THRESHOLD) {
+      wrappedOnNext();
+    } else if (diff < -SWIPE_THRESHOLD) {
+      wrappedOnPrev();
+    }
+    setTouchStart(null);
+  };
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -67,11 +95,23 @@ const ImageModal: React.FC<ImageModalProps> = ({ images, currentIndex, onClose, 
   return (
     <div 
       className={cn(
-        "fixed inset-0 bg-black/90 z-50 flex items-center justify-center",
+        "fixed inset-0 bg-black/80 z-50 flex items-center justify-center",
         isClosing ? "animate-fade-out" : "animate-fade-in"
       )}
       onClick={handleClose}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={handleCloseClick}
+        className="absolute top-4 right-4 text-white/70 hover:bg-white/10 hover:text-white transition-colors z-50"
+        aria-label="Close image viewer"
+      >
+        <X className="h-6 w-6" />
+      </Button>
+
       <div 
         className="relative max-w-screen-xl max-h-screen p-4 flex items-center justify-center"
         onClick={stopPropagation}
@@ -86,17 +126,7 @@ const ImageModal: React.FC<ImageModalProps> = ({ images, currentIndex, onClose, 
           )}
         />
 
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleClose}
-          className="absolute top-4 right-4 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-          aria-label="Close image viewer"
-        >
-          <X className="h-6 w-6" />
-        </Button>
-
-        {images.length > 1 && (
+        {images.length > 1 && !isMobile && (
           <>
             <Button
               variant="ghost"
