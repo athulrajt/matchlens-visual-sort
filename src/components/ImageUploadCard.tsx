@@ -23,7 +23,11 @@ const ImageUploadCard: React.FC<ImageUploadCardProps> = ({ url, name, progress }
     )}
     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 text-white">
       <p className="truncate text-xs font-medium">{name}</p>
-      <Progress value={progress === -1 ? 100 : progress} className={cn("mt-1 h-1.5 w-full [&>div]:bg-primary", { "[&>div]:bg-destructive": progress === -1 })} />
+      <Progress
+        value={progress === -1 ? 100 : progress}
+        className={cn("mt-1 h-1.5 w-full [&>div]:bg-primary", { "[&>div]:bg-destructive": progress === -1 })}
+        indicatorClassName="transition-none"
+      />
     </div>
   </div>
 );
