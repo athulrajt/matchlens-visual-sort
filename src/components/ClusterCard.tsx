@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ClusterType } from '@/types';
 import { MoreHorizontal, Copy, Trash2 } from 'lucide-react';
@@ -7,6 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { exportImagesToFigma } from '@/lib/figmaExport';
+import ClusterColorPalette from './ClusterColorPalette';
 
 interface ClusterCardProps {
   cluster: ClusterType;
@@ -179,20 +179,7 @@ const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onViewCluster, onDel
         )}
 
         <div className="mt-auto pt-4 flex items-end justify-between">
-          <div>
-            <p className="text-xs text-muted-foreground mb-2">Dominant Colors:</p>
-            <div className="flex items-center space-x-2 h-6">
-              {cluster.palette.map((color, index) => (
-                <div
-                  key={index}
-                  className="h-6 w-6 rounded-full border-2 border-white/50 shadow-sm cursor-pointer transition-transform hover:scale-110"
-                  style={{ backgroundColor: color }}
-                  title={`Copy ${color}`}
-                  onClick={(e) => handleCopyColor(e, color)}
-                ></div>
-              ))}
-            </div>
-          </div>
+          <ClusterColorPalette palette={cluster.palette} onColorCopy={handleCopyColor} />
           <button
             onClick={handleShareToPinterest}
             aria-label="Share on Pinterest"
