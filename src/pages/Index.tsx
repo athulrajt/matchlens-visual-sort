@@ -23,10 +23,14 @@ const IndexPage = () => {
   const { clusters, isLoadingClusters, createClusters, deleteCluster, clearClusters, clearClustersMutation } = useClusters();
   
   const [activeFilters, setActiveFilters] = useState<{ tags: string[] }>({ tags: [] });
+  const [searchTerm, setSearchTerm] = useState('');
 
   const { isProcessing, isClustering, processingFiles, fileInputRef, handleUploadClick, handleFileChange } = useImageUploader({
     createClusters,
-    onUploadStart: () => setActiveFilters({ tags: [] }),
+    onUploadStart: () => {
+      setActiveFilters({ tags: [] });
+      setSearchTerm('');
+    },
     onUploadEnd: () => {},
   });
 
@@ -62,6 +66,17 @@ const IndexPage = () => {
     );
   }, [clusters, activeFilters]);
 
+  const searchedClusters = useMemo(() => {
+    if (!searchTerm) {
+      return filteredClusters;
+    }
+    const lowercasedTerm = searchTerm.toLowerCase();
+    return filteredClusters.filter(cluster =>
+      cluster.title.toLowerCase().includes(lowercasedTerm) ||
+      (cluster.description && cluster.description.toLowerCase().includes(lowercasedTerm))
+    );
+  }, [filteredClusters, searchTerm]);
+
   const handleViewCluster = (cluster: ClusterType) => {
     navigate(`/cluster/${cluster.id}`, { state: { cluster } });
   };
@@ -85,6 +100,9 @@ const IndexPage = () => {
         showFilterButton={!isInitialView}
         onFilterButtonClick={() => setIsFilterSheetOpen(true)}
         onSignInClick={() => setIsAuthModalOpen(true)}
+        showSearchButton={!isInitialView}
+        searchTerm={searchTerm}
+        onSearchTermChange={setSearchTerm}
       />
       <main className="container mx-auto flex-grow py-8 px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center">
         {isProcessing ? (
@@ -93,7 +111,7 @@ const IndexPage = () => {
           <InitialView onUpload={handleUploadClick} />
         ) : (
           <Dashboard
-            filteredClusters={filteredClusters}
+            filteredClusters={searchedClusters}
             allClusters={clusters}
             hasActiveFilters={activeFilters.tags.length > 0}
             onViewCluster={handleViewCluster}
@@ -101,6 +119,8 @@ const IndexPage = () => {
             onClearAll={clearClusters}
             onAdjustFilters={() => setIsFilterSheetOpen(true)}
             isClearing={clearClustersMutation.isPending}
+            searchTerm={searchTerm}
+            onClearSearch={() => setSearchTerm('')}
           />
         )}
       </main>
