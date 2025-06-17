@@ -20,7 +20,8 @@ const ClusterDetailPage: React.FC = () => {
   const [showImageViewGuide, setShowImageViewGuide] = useState(false);
 
   useEffect(() => {
-    const hasSeen = sessionStorage.getItem('hasSeenImageViewGuide');
+    // Use localStorage for persistence across browser sessions
+    const hasSeen = localStorage.getItem('hasSeenImageViewGuide');
     if (!hasSeen) {
         setShowImageViewGuide(true);
     }
@@ -107,7 +108,7 @@ const ClusterDetailPage: React.FC = () => {
   };
   
   const handleDismissImageViewGuide = () => {
-    sessionStorage.setItem('hasSeenImageViewGuide', 'true');
+    localStorage.setItem('hasSeenImageViewGuide', 'true');
     setShowImageViewGuide(false);
   };
 

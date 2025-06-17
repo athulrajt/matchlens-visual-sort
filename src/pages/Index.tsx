@@ -119,15 +119,15 @@ const IndexPage = () => {
   }, [filteredClusters, searchTerm]);
 
   useEffect(() => {
-    // Show guide only if there are clusters and the user hasn't seen it before in this session.
-    const hasSeen = sessionStorage.getItem('hasSeenMergeGuide');
+    // Show guide only if there are clusters and the user hasn't seen it before (using localStorage for persistence)
+    const hasSeen = localStorage.getItem('hasSeenMergeGuide');
     if (!hasSeen && searchedClusters.length > 0) {
       setShowMergeGuide(true);
     }
   }, [searchedClusters.length]);
 
   const handleDismissMergeGuide = () => {
-    sessionStorage.setItem('hasSeenMergeGuide', 'true');
+    localStorage.setItem('hasSeenMergeGuide', 'true');
     setShowMergeGuide(false);
   };
 
