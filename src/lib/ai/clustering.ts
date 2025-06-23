@@ -27,7 +27,8 @@ const generateClusterMetadata = async (images: ProcessedImage[], title: string):
         ? `A collection of ${images.length} images related to: ${topTags.join(', ')}.`
         : `A collection of ${images.length} similar images.`;
     
-    const palette = await getPaletteFromImage(images[0].url).catch(() => []);
+    // Generate palette only for the first image to save time
+    const palette = images.length > 0 ? await getPaletteFromImage(images[0].url).catch(() => []) : [];
     const finalImages: ImageType[] = images.map(({ file, embedding, tags, ...rest }) => rest);
     const idSuffix = title.replace(/\s+/g, '-').toLowerCase();
 
@@ -42,7 +43,7 @@ const generateClusterMetadata = async (images: ProcessedImage[], title: string):
 };
 
 /**
- * Process a single image to extract features and tags
+ * Process a single image to extract features and tags with optimized performance
  */
 const processImage = async (
     imageInfo: ImageType & { file: File },
@@ -50,9 +51,10 @@ const processImage = async (
     classifierPipeline: any
 ): Promise<ProcessedImage | null> => {
     try {
+        // Load image once and reuse for both operations
         const image = await RawImage.read(imageInfo.file);
         
-        // Process feature extraction and tagging in parallel
+        // Process both operations in parallel for maximum speed
         const [featureResult, tags] = await Promise.all([
             featureExtractorPipeline(image, { pooling: 'mean', normalize: true }),
             getCLIPTags(classifierPipeline, image)
@@ -67,56 +69,60 @@ const processImage = async (
 };
 
 /**
- * Process images in parallel batches for better performance
+ * Process images with aggressive parallel batching for maximum speed
  */
 const processImagesInBatches = async (
     imageInfos: (ImageType & { file: File })[],
     featureExtractorPipeline: any,
     classifierPipeline: any,
     onProgress: (args: { imageId: string, progress: number }) => void,
-    batchSize: number = 3
+    batchSize: number = 6 // Increased from 3 to 6 for more parallelism
 ): Promise<ProcessedImage[]> => {
     const processedImages: ProcessedImage[] = [];
     
+    // Process all batches in parallel for maximum speed
+    const allBatches = [];
     for (let i = 0; i < imageInfos.length; i += batchSize) {
         const batch = imageInfos.slice(i, i + batchSize);
-        
-        // Process batch in parallel
-        const batchPromises = batch.map(async (info, batchIndex) => {
-            const globalIndex = i + batchIndex;
-            onProgress({ imageId: info.id, progress: 10 });
-            
-            const result = await processImage(info, featureExtractorPipeline, classifierPipeline);
-            
-            if (result) {
-                onProgress({ imageId: info.id, progress: 100 });
-                return result;
-            } else {
-                onProgress({ imageId: info.id, progress: -1 });
-                return null;
-            }
-        });
-        
-        const batchResults = await Promise.all(batchPromises);
-        
-        // Add successful results to processed images
-        batchResults.forEach(result => {
-            if (result) processedImages.push(result);
-        });
-        
-        console.log(`✅ Processed batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(imageInfos.length / batchSize)}`);
+        allBatches.push(batch);
     }
+
+    // Process batches in parallel instead of sequentially
+    const batchPromises = allBatches.map(async (batch, batchIndex) => {
+        const batchResults = await Promise.all(
+            batch.map(async (info, inBatchIndex) => {
+                const globalIndex = batchIndex * batchSize + inBatchIndex;
+                onProgress({ imageId: info.id, progress: 10 });
+                
+                const result = await processImage(info, featureExtractorPipeline, classifierPipeline);
+                
+                if (result) {
+                    onProgress({ imageId: info.id, progress: 100 });
+                    return result;
+                } else {
+                    onProgress({ imageId: info.id, progress: -1 });
+                    return null;
+                }
+            })
+        );
+        
+        console.log(`✅ Processed batch ${batchIndex + 1}/${allBatches.length} in parallel`);
+        return batchResults.filter(result => result !== null) as ProcessedImage[];
+    });
+
+    // Wait for all batches to complete
+    const allBatchResults = await Promise.all(batchPromises);
+    
+    // Flatten results
+    allBatchResults.forEach(batchResults => {
+        processedImages.push(...batchResults);
+    });
     
     return processedImages;
 };
 
 /**
- * Takes an array of image files, generates embeddings and tags, groups them by top tag,
- * and then runs k-means within larger groups to create final clusters.
- * @param files An array of image files.
- * @param onProgress A callback to report progress for each image.
- * @param beforeClustering A callback executed before the final clustering step.
- * @returns A promise that resolves to an array of ClusterType objects.
+ * Optimized clustering with parallel processing and smart defaults
  */
 export const clusterImages = async (
     files: File[],
@@ -129,14 +135,15 @@ export const clusterImages = async (
     }
     if (imageFiles.length === 0) return [];
 
-    // Load AI pipelines once at the start
+    // Load AI pipelines in parallel for faster startup
+    console.log("🚀 Loading AI models in parallel...");
     const [featureExtractorPipeline, classifierPipeline] = await Promise.all([
         getFeatureExtractor(),
         getClassifier()
     ]);
-    console.log("✅ AI pipelines ready for processing.");
+    console.log("✅ AI pipelines ready for high-speed processing.");
 
-    // 1. Create ImageType objects
+    // Create ImageType objects
     const imageInfos: (ImageType & { file: File })[] = imageFiles.map((file, i) => ({
         id: `${file.name}-${i}`,
         url: URL.createObjectURL(file),
@@ -144,14 +151,16 @@ export const clusterImages = async (
         file: file,
     }));
 
-    // 2. Process images in parallel batches
-    const batchSize = Math.min(3, Math.max(1, Math.floor(imageFiles.length / 4))); // Dynamic batch size
+    // Optimized batch size calculation for maximum parallelism
+    const optimalBatchSize = Math.min(8, Math.max(4, Math.ceil(imageFiles.length / 2)));
+    console.log(`🔥 Processing ${imageFiles.length} images with batch size ${optimalBatchSize} for maximum speed`);
+    
     const processedImages = await processImagesInBatches(
         imageInfos, 
         featureExtractorPipeline, 
         classifierPipeline, 
         onProgress,
-        batchSize
+        optimalBatchSize
     );
     
     // Signal that per-image processing is done and clustering is starting
@@ -159,11 +168,12 @@ export const clusterImages = async (
     
     if (processedImages.length < 1) return [];
 
-    // 3. Group images by their top tag
-    console.log('Grouping images by top tag...');
+    // Parallel clustering operations
+    console.log('🚀 Starting parallel clustering operations...');
     const taggedGroups: Record<string, ProcessedImage[]> = {};
     const untaggedImages: ProcessedImage[] = [];
 
+    // Group by top tag (fast operation)
     processedImages.forEach(image => {
         if (image.tags.length > 0) {
             const topTag = image.tags[0].label;
@@ -176,41 +186,42 @@ export const clusterImages = async (
 
     const finalClusters: ClusterType[] = [];
 
-    // 4. Process tagged groups, running k-means on larger ones
-    console.log(`Processing ${Object.keys(taggedGroups).length} tagged groups...`);
+    // Process all tagged groups in parallel for maximum speed
+    console.log(`⚡ Processing ${Object.keys(taggedGroups).length} tagged groups in parallel...`);
     const groupProcessingPromises = Object.entries(taggedGroups).map(async ([tag, images]) => {
         const capitalizedTag = tag.charAt(0).toUpperCase() + tag.slice(1);
         
-        // If a group is small, just create one cluster for it
-        if (images.length <= 4) {
+        // Smaller threshold for sub-clustering to reduce processing time
+        if (images.length <= 3) {
             return [await generateClusterMetadata(images, capitalizedTag)];
         }
 
-        // If a group is larger, run k-means to find visual sub-clusters
+        // Optimized k-means with reduced iterations for speed
         const features = images.map(img => img.embedding);
-        const k = Math.min(Math.max(1, Math.ceil(features.length / 5)), 5);
+        const k = Math.min(Math.max(1, Math.ceil(features.length / 4)), 4); // Reduced cluster count
 
         if (k <= 1) {
             return [await generateClusterMetadata(images, capitalizedTag)];
         }
 
         try {
-            const kmeansResult = kmeans(features, k, {});
+            // Use fewer iterations for faster clustering
+            const kmeansResult = kmeans(features, k, { maxIterations: 50 }); // Reduced from default 100
             const subGroups: ProcessedImage[][] = Array.from({ length: k }, () => []);
             kmeansResult.clusters.forEach((clusterIndex, i) => {
                 subGroups[clusterIndex].push(images[i]);
             });
 
-            const subClusters = await Promise.all(
-                subGroups.map(async (subGroup, i) => {
-                    if (subGroup.length > 0) {
-                        const subClusterTitle = `${capitalizedTag} #${i + 1}`;
-                        return await generateClusterMetadata(subGroup, subClusterTitle);
-                    }
-                    return null;
-                })
-            );
+            // Generate sub-cluster metadata in parallel
+            const subClusterPromises = subGroups.map(async (subGroup, i) => {
+                if (subGroup.length > 0) {
+                    const subClusterTitle = `${capitalizedTag} #${i + 1}`;
+                    return await generateClusterMetadata(subGroup, subClusterTitle);
+                }
+                return null;
+            });
 
+            const subClusters = await Promise.all(subClusterPromises);
             return subClusters.filter(cluster => cluster !== null) as ClusterType[];
         } catch (e) {
             console.error(`K-means failed for tag "${tag}", creating a single cluster.`, e);
@@ -218,36 +229,36 @@ export const clusterImages = async (
         }
     });
 
-    // Process all tagged groups in parallel
+    // Wait for all tagged groups to be processed
     const taggedClustersResults = await Promise.all(groupProcessingPromises);
     taggedClustersResults.forEach(clusters => finalClusters.push(...clusters));
 
-    // 5. Cluster any remaining untagged images using k-means
+    // Handle untagged images with optimized clustering
     if (untaggedImages.length > 0) {
-        console.log(`Clustering ${untaggedImages.length} untagged images...`);
+        console.log(`⚡ Fast-clustering ${untaggedImages.length} untagged images...`);
         const features = untaggedImages.map(img => img.embedding);
         
-        if (untaggedImages.length <= 4) {
+        if (untaggedImages.length <= 3) {
             finalClusters.push(await generateClusterMetadata(untaggedImages, "Miscellaneous"));
         } else {
-            const k = Math.min(Math.max(1, Math.ceil(features.length / 6)), 4);
+            const k = Math.min(Math.max(1, Math.ceil(features.length / 5)), 3); // Reduced cluster count
             try {
-                const kmeansResult = kmeans(features, k, {});
+                const kmeansResult = kmeans(features, k, { maxIterations: 50 }); // Faster clustering
                 const subGroups: ProcessedImage[][] = Array.from({ length: k }, () => []);
                 kmeansResult.clusters.forEach((clusterIndex, i) => {
                     subGroups[clusterIndex].push(untaggedImages[i]);
                 });
     
-                const miscClusters = await Promise.all(
-                    subGroups.map(async (subGroup, i) => {
-                        if (subGroup.length > 0) {
-                            const title = `Miscellaneous #${i + 1}`;
-                            return await generateClusterMetadata(subGroup, title);
-                        }
-                        return null;
-                    })
-                );
+                // Parallel processing of miscellaneous clusters
+                const miscClusterPromises = subGroups.map(async (subGroup, i) => {
+                    if (subGroup.length > 0) {
+                        const title = `Miscellaneous #${i + 1}`;
+                        return await generateClusterMetadata(subGroup, title);
+                    }
+                    return null;
+                });
 
+                const miscClusters = await Promise.all(miscClusterPromises);
                 miscClusters.forEach(cluster => {
                     if (cluster) finalClusters.push(cluster);
                 });

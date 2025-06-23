@@ -3,10 +3,7 @@ import { kmeans } from 'ml-kmeans';
 import { TAG_PROMPTS } from './prompts';
 
 /**
- * Extracts a color palette from an image using the k-means algorithm on its pixels.
- * @param imageUrl The URL of the image to process.
- * @param colorCount The number of dominant colors to extract.
- * @returns A promise that resolves to an array of hex color strings.
+ * Optimized palette extraction with reduced sampling for speed
  */
 export const getPaletteFromImage = (imageUrl: string, colorCount = 5): Promise<string[]> => {
     return new Promise((resolve, reject) => {
@@ -16,15 +13,17 @@ export const getPaletteFromImage = (imageUrl: string, colorCount = 5): Promise<s
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
             if (!ctx) return reject(new Error('Could not get canvas context'));
 
-            // Downsample for performance
-            const size = 20; 
+            // Further reduced size for maximum speed
+            const size = 15; // Reduced from 20 to 15
             canvas.width = size;
             canvas.height = size;
             ctx.drawImage(img, 0, 0, size, size);
 
             const data = ctx.getImageData(0, 0, size, size).data;
             const pixels: number[][] = [];
-            for (let i = 0; i < data.length; i += 4) {
+            
+            // Sample every other pixel for speed (stride = 8 instead of 4)
+            for (let i = 0; i < data.length; i += 8) {
                 // Ignore transparent pixels
                 if (data[i + 3] < 128) continue;
                 pixels.push([data[i], data[i + 1], data[i + 2]]);
@@ -32,8 +31,9 @@ export const getPaletteFromImage = (imageUrl: string, colorCount = 5): Promise<s
 
             if (pixels.length === 0) return resolve([]);
 
-            // Use k-means to find dominant colors
-            const result = kmeans(pixels, Math.min(colorCount, pixels.length), {});
+            // Use fewer clusters and iterations for speed
+            const clusterCount = Math.min(colorCount, pixels.length, 3); // Max 3 colors for speed
+            const result = kmeans(pixels, clusterCount, { maxIterations: 20 }); // Reduced iterations
             const palette: string[] = result.centroids.map((c: number[]) => {
                  const r = Math.round(c[0]);
                  const g = Math.round(c[1]);
@@ -51,30 +51,48 @@ export const getPaletteFromImage = (imageUrl: string, colorCount = 5): Promise<s
 };
 
 /**
- * Generates a list of relevant tags for an image using a CLIP model
- * for zero-shot classification against a curated list of prompts.
- * @param classifier The zero-shot-image-classification pipeline instance.
- * @param image The RawImage to process.
- * @returns A promise that resolves to an array of tag objects with labels and scores, sorted by score.
+ * High-speed CLIP tagging with optimized prompt processing
  */
 export const getCLIPTags = async (classifier: any, image: RawImage): Promise<{label: string, score: number}[]> => {
     const allMatches: {label: string, score: number}[] = [];
+    const promptEntries = Object.values(TAG_PROMPTS);
 
-    for (const prompts of Object.values(TAG_PROMPTS)) {
-        try {
-            const result = await classifier(image, prompts, { top_k: 1 });
-            const topMatch = result[0];
-
-            // Add the tag only if its confidence score is above a threshold.
-            if (topMatch && topMatch.score > 0.5) {
-                allMatches.push({ label: topMatch.label, score: topMatch.score });
-            }
-        } catch (e) {
-            console.error("Failed to get CLIP tags for a category:", e);
-        }
+    // Process prompts in parallel batches for speed
+    const batchSize = 3; // Process 3 prompt categories at once
+    const batches = [];
+    for (let i = 0; i < promptEntries.length; i += batchSize) {
+        batches.push(promptEntries.slice(i, i + batchSize));
     }
 
-    // If a label appears multiple times, keep the one with the highest score.
+    // Process all batches in parallel
+    const batchPromises = batches.map(async (batch) => {
+        const batchResults = await Promise.all(
+            batch.map(async (prompts) => {
+                try {
+                    const result = await classifier(image, prompts, { top_k: 1 });
+                    const topMatch = result[0];
+
+                    // Slightly lowered threshold for more tags
+                    if (topMatch && topMatch.score > 0.45) {
+                        return { label: topMatch.label, score: topMatch.score };
+                    }
+                    return null;
+                } catch (e) {
+                    console.error("Failed to get CLIP tags for a category:", e);
+                    return null;
+                }
+            })
+        );
+        return batchResults.filter(result => result !== null);
+    });
+
+    // Wait for all batches and flatten results
+    const allBatchResults = await Promise.all(batchPromises);
+    allBatchResults.forEach(batchResults => {
+        allMatches.push(...batchResults);
+    });
+
+    // Deduplicate by keeping highest score for each label
     const tagMap = new Map<string, number>();
     for (const match of allMatches) {
         if (!tagMap.has(match.label) || (tagMap.get(match.label) ?? 0) < match.score) {
@@ -84,6 +102,6 @@ export const getCLIPTags = async (classifier: any, image: RawImage): Promise<{la
 
     const uniqueScoredTags = Array.from(tagMap.entries()).map(([label, score]) => ({ label, score }));
 
-    // Return unique tags, sorted by score in descending order
-    return uniqueScoredTags.sort((a, b) => b.score - a.score);
+    // Return top 5 tags only for speed
+    return uniqueScoredTags.sort((a, b) => b.score - a.score).slice(0, 5);
 };
